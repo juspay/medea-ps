@@ -17,6 +17,13 @@ data Specification = Specification {
   maxLength :: Maybe Natural
 }
 
+-- getters
+minLength :: Specification -> Maybe Natural
+minLength (Specification {minLength:m}) = m
+
+maxLength :: Specification -> Maybe Natural
+maxLength (Specification {maxLength:m}) = m
+
 derive instance eqSpecification :: Eq Specification
 
 defaultSpec :: Specification

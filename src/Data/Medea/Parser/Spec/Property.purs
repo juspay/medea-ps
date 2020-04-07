@@ -1,5 +1,5 @@
 module Data.Medea.Parser.Spec.Property
-  (Specification, parseSpecification) where
+  (Specification, parseSpecification, mkSpec, propName, propSchema, propOptional) where
 
 import MedeaPrelude
 import Text.Parsing.Parser.Combinators (option, try)
@@ -12,6 +12,15 @@ data Specification
   , propSchema :: Maybe Identifier
   , propOptional :: Boolean
   }
+
+propName :: Specification -> MedeaString
+propName (Specification { propName }) = propName
+
+propSchema :: Specification -> Maybe Identifier
+propSchema (Specification { propSchema }) = propSchema
+
+propOptional :: Specification -> Boolean
+propOptional (Specification { propOptional }) = propOptional
 
 derive instance eqSpecification :: Eq Specification
 

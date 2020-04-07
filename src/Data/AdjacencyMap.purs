@@ -60,6 +60,7 @@ derive instance newtypeAdjacencyMap :: Newtype (AdjacencyMap a) _
 
 derive newtype instance eqAdjacencyMap :: Eq a => Eq (AdjacencyMap a)
 
+derive newtype instance showAdjacencyMap :: Show a => Show (AdjacencyMap a)
 -- TODO instances Ord, Show Num, semigroup, monoid NFData
 
 empty :: forall a. AdjacencyMap a

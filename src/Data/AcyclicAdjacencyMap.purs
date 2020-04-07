@@ -9,14 +9,13 @@ import Effect.Exception.Unsafe (unsafeThrow)
 import Data.AdjacencyMap (AdjacencyMap)
 import Data.AdjacencyMap as AdjMap
 import Data.Map as Map
-import Data.NonEmpty (NonEmpty(..),  (:|))
 import Data.Set as Set
-import Data.Tree (Tree, Forest)
-import Data.Tree as Tree
 import Partial.Unsafe (unsafePartial)
 import Unsafe.Coerce (unsafeCoerce)
 
 newtype AcyclicAdjacencyMap a = AAM (AdjacencyMap a)
+
+derive newtype instance showAcyclicAdjacencyMap :: Show a => Show (AcyclicAdjacencyMap a)
 
 data AcyclicError = CycleError | DFSOrderViolation
 
