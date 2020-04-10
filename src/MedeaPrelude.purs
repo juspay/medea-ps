@@ -38,6 +38,6 @@ import Data.Maybe as Maybe
 import Data.Newtype (class Newtype, unwrap) as Newtype
 import Data.Set (Set(..)) as Set
 import Data.Traversable (class Traversable, traverse, traverse_, sequence, sequenceDefault ) as Traversable
-import Data.Tuple (Tuple(..), fst, snd) as Tuple
+import Data.Tuple (Tuple(..), fst, snd, uncurry) as Tuple
 import Data.Typelevel.Undefined (undefined) as Undefined
 

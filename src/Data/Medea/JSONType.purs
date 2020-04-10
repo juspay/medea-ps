@@ -20,8 +20,8 @@ derive instance genericJSONType :: Generic JSONType _
 instance showJSONType :: Show JSONType where
   show x = genericShow x
 
-typeof :: Json -> JSONType
-typeof j = caseJson
+typeOf :: Json -> JSONType
+typeOf j = caseJson
   (\u -> JSONNull)
   (\b -> JSONBoolean)
   (\n -> JSONNumber)

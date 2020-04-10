@@ -18,6 +18,9 @@ data Specification
   , object :: Object.Specification
   }
 
+name :: Specification -> Identifier
+name (Specification { name: n}) = n
+
 mkSpec :: Identifier -> Type.Specification -> Array.Specification -> Object.Specification -> Specification
 mkSpec name types array object 
   = Specification  

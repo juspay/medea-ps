@@ -12,6 +12,13 @@ data Specification
   , additionalAllowed :: Boolean
   }
 
+--getters
+properties :: Specification -> Array Property.Specification
+properties (Specification { properties:p }) = p
+
+additionalAllowed :: Specification -> Boolean
+additionalAllowed (Specification {additionalAllowed: a}) = a
+
 derive instance eqSpecification :: Eq Specification
 
 mkSpec :: Array Property.Specification -> Boolean -> Specification
