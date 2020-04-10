@@ -255,8 +255,10 @@ checkCustoms v
   = do
     -- here we drop all non-custom nodes
     nodes <- (gets $ fst :: m (NonEmpty Set TypeNode))
-    let customNodes = NonEmpty.fromNonEmpty Set.insert nodes
-    let customNodeArr = (Set.toUnfoldable customNodes :: Array TypeNode)
+    let 
+      nodeSet = NonEmpty.fromNonEmpty Set.insert nodes
+      customNodeSet = Set.filter (isCustom) nodeSet
+      customNodeArr = (Set.toUnfoldable customNodeSet :: Array TypeNode)
     -- we need to turn the set into an array here as Sets are not functors in PS
     asum <<< map checkCustom $ customNodeArr
   where
