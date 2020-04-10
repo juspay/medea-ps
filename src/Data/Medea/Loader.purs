@@ -8,6 +8,8 @@ import Data.Medea.Schema (Schema, mkSchema)
 import Data.Medea.Analysis(AnalysisError(..), intoMap, intoEdges, intoAcyclic, checkStartSchema)
 import Data.Medea.Parser.Spec.Schemata as Schemata
 import Text.Parsing.Parser (ParseError, runParser)
+import Node.Encoding (Encoding(..))
+import Node.FS.Aff (readTextFile)
 
 data LoaderError
   = -- | The data provided wasn't UTF-8.
@@ -44,12 +46,19 @@ data LoaderError
 -- | Attempt to produce a schema from Binary data in memory.
 
 
--- TODO buildSchema - relies on Data.Medea.Schema
 buildSchema :: forall m. MonadError LoaderError m => String -> m Schema
 buildSchema utf8   = do
   -- parseUtf8 not necessary since JS strings are utf8 by default
   spec <- fromutf8 ":memory:" utf8
   analyze spec
+
+loadSchemaFromFile :: forall m. MonadAff m => MonadError LoaderError m => String -> m Schema
+loadSchemaFromFile fp = do
+  contents <- liftAff <<< readTextFile UTF8 $ fp
+  spec <- fromutf8 fp contents
+  analyze spec
+
+-- `loadSchemaFromHandle` is not ported as Purescript's filesystem bindings don't have the notion of a first class file handle
 
 fromutf8 :: forall m. MonadError LoaderError m => String -> String -> m Schemata.Specification
 fromutf8 sourceName utf8 

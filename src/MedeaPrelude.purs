@@ -1,5 +1,6 @@
 module MedeaPrelude 
   ( module Prelude
+  , module Aff
   , module Array
   , module Bifunctor
   , module Either
@@ -22,7 +23,7 @@ module MedeaPrelude
 
 import Prelude
 import Control.MonadZero (guard) as MonadZero
-import Data.Array  as Array
+import Data.Array hiding (mapWithIndex) as Array
 import Data.Bifunctor as Bifunctor
 import Data.Either as Either
 import Data.Enum (class Enum, succ, pred, class BoundedEnum, fromEnum, toEnum) as Enum
@@ -37,7 +38,7 @@ import Data.Map (Map(..)) as Map
 import Data.Maybe as Maybe
 import Data.Newtype (class Newtype, unwrap) as Newtype
 import Data.Set (Set(..)) as Set
-import Data.Traversable (class Traversable, traverse, traverse_, sequence, sequenceDefault ) as Traversable
+import Data.Traversable (class Traversable, traverse, traverse_, sequence, sequenceDefault, for) as Traversable
 import Data.Tuple (Tuple(..), fst, snd, uncurry) as Tuple
 import Data.Typelevel.Undefined (undefined) as Undefined
-
+import Effect.Aff.Class (class MonadAff, liftAff) as Aff

@@ -5,6 +5,8 @@ module Data.AdjacencyMap where
 import MedeaPrelude
 import Data.FoldableWithIndex as Fold
 import Data.FunctorWithIndex as FunctorWI
+import Data.Hashable (class Hashable)
+import Data.HashMap as HM
 import Data.Map as Map
 import Data.Set as Set
 
@@ -48,6 +50,13 @@ foldfMaybeMap (Just k) a mka = Map.insert k a mka
 
 catMaybeMap :: forall k a. Ord k => Map (Maybe k) a -> Map k a
 catMaybeMap mmka = Fold.foldrWithIndex foldfMaybeMap Map.empty mmka
+
+foldfMaybeHashMap :: forall a k. Hashable k => k -> Maybe a -> HashMap k a -> HashMap k a
+foldfMaybeHashMap k Nothing acc = acc
+foldfMaybeHashMap k (Just a) acc = HM.insert k a acc
+
+catMaybeHashMap :: forall k a. Hashable k => HashMap k (Maybe a) -> HashMap k a
+catMaybeHashMap hkma = Fold.foldrWithIndex foldfMaybeHashMap HM.empty hkma
 
 mapFromArray :: forall a b. Ord a => Array (Tuple a b) -> Map a b
 mapFromArray = Map.fromFoldable

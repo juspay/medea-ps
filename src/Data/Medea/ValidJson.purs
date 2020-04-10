@@ -3,7 +3,11 @@ module Data.Medea.ValidJSON where
 import MedeaPrelude
 import Data.Argonaut (Json)
 import Data.Eq (class Eq1)
+import Data.FoldableWithIndex (foldrWithIndex)
+import Data.HashMap as HM
 import Data.Medea.MedeaJSON (MJSON(..))
+import Foreign.Object (Object)
+import Foreign.Object as Obj
 
 data ValidJSONF a
   = AnythingF MJSON
@@ -79,3 +83,9 @@ instance hashableValidJSONF :: (Hashable a) => Hashable (ValidJSONF a) where
   hash (StringF s) = hash s
   hash (ArrayF a) = hash a
   hash (ObjectF o) = hash o
+
+objectToHashMap :: forall a. Object a -> HashMap String a
+objectToHashMap o = foldrWithIndex HM.insert HM.empty o
+
+hashmapToObject :: forall a. HashMap String a -> Object a
+hashmapToObject hma = foldrWithIndex Obj.insert Obj.empty hma

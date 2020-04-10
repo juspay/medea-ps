@@ -65,11 +65,14 @@ mkReducedSchema rt ra ro
   , reducedObject: ro
   }
 -- simple getters to mimic haskell record getters
-reducedObj :: ReducedSchema -> ReducedObjectSpec
-reducedObj (ReducedSchema { reducedObject }) = reducedObject
+reducedObject :: ReducedSchema -> ReducedObjectSpec
+reducedObject (ReducedSchema { reducedObject:ro }) = ro
+
+reducedArray :: ReducedSchema -> ReducedArraySpec
+reducedArray (ReducedSchema { reducedArray:ra }) = ra
 
 reducedType :: ReducedSchema -> ReducedTypeSpec
-reducedType (ReducedSchema { reducedTypes }) = reducedTypes
+reducedType (ReducedSchema { reducedTypes: rt }) = rt
 
 derive instance genericReducedSchema :: Generic ReducedSchema _
 
@@ -87,7 +90,7 @@ intoEdges mir redScm = evalStateT (go [] redScm startNode <* checkUnusedSchema <
        reachableSchemas <- gets Set.size
        when (reachableSchemas < Map.size mir) $ throwError UnreachableSchemata
     checkUndefinedPropSchema =
-      let result = filter isUndefinedNode <<< map fst <<< HM.values <<< fst <<< reducedObj $ redScm
+      let result = filter isUndefinedNode <<< map fst <<< HM.values <<< fst <<< reducedObject $ redScm
       in case uncons result of
         Nothing -> pure unit
         Just { head: (CustomNode ident), tail } -> throwError $ DanglingTypeRefProp ident
