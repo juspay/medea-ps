@@ -20,6 +20,8 @@ import Data.Medea.Parser.Parsing (takeWhile1P, eol)
 import Data.Medea.JSONType (JSONType(..))
 import Data.Medea.Parser.Types (MedeaParser, MedeaParseErr(..))
 
+import Debug.Trace (traceM)
+
 newtype Identifier = Identifier String
 
 derive instance eqIdentifier :: Eq Identifier
@@ -30,9 +32,6 @@ derive instance genericIdentifier :: Generic Identifier _
 
 instance showIdentifier :: Show Identifier where
   show x = genericShow x
-
--- TODO: parseIdentifier
--- relies on takeWhileIP, isSeperator, isControl, checkedConstruct, cons (data.Text)
 
 parseIdentifier :: MedeaParser Identifier
 parseIdentifier = do
@@ -153,7 +152,7 @@ isSeperatorOrControl :: Char -> Boolean
 isSeperatorOrControl c = isSeparator c || isControl c
 
 parseLine :: forall a. Int -> MedeaParser a -> MedeaParser a
-parseLine spaces p = replicateM_ spaces (char ' ') *> p <* eol
+parseLine spaces p = (replicateM_ spaces (char ' ')) *> p <* eol
 
 parseKeyVal :: forall a. String -> MedeaParser a -> MedeaParser a
 parseKeyVal key = ((parseReservedChunk key *> char ' ' ) *> _)

@@ -43,6 +43,11 @@ data LoaderError
     MultiplePropSchemaDefinition String String
   | UnexpectedTypeNodeErr
 
+derive instance genericLoaderError :: Generic LoaderError _
+
+instance showLoaderError :: Show LoaderError where
+  show x = genericShow x
+
 -- | Attempt to produce a schema from Binary data in memory.
 
 
