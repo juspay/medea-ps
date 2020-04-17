@@ -8,12 +8,14 @@ import Data.Medea.Parser.Primitive (Identifier, parseKeyVal, parseIdentifier, pa
 import Data.Medea.Parser.Spec.Array as Array
 import Data.Medea.Parser.Spec.Object as Object
 import Data.Medea.Parser.Spec.Type as Type
+import Data.Medea.Parser.Spec.String as String
 import Text.Parsing.Parser.Combinators (try)
 
 data Specification 
   = Specification 
   { name :: Identifier
   , types :: Type.Specification
+  , stringVals :: String.Specification
   , array :: Array.Specification
   , object :: Object.Specification
   }
@@ -21,11 +23,12 @@ data Specification
 name :: Specification -> Identifier
 name (Specification { name: n}) = n
 
-mkSpec :: Identifier -> Type.Specification -> Array.Specification -> Object.Specification -> Specification
-mkSpec name types array object 
+mkSpec :: Identifier -> Type.Specification -> String.Specification -> Array.Specification -> Object.Specification -> Specification
+mkSpec name types stringVals array object 
   = Specification  
   { name
   , types
+  , stringVals
   , array
   , object
   }
@@ -38,6 +41,7 @@ parseSpecification
      schemaName <- parseLine 0 $ parseKeyVal "schema" parseIdentifier
      runPermutation $ mkSpec schemaName
        <$> toPermutationWithDefault Type.defaultSpec (try Type.parseSpecification)
+       <*> toPermutationWithDefault String.defaultSpec (try String.parseSpecification)
        <*> toPermutationWithDefault Array.defaultSpec (try Array.parseSpecification)
        <*> toPermutationWithDefault Object.defaultSpec (try Object.parseSpecification)
 

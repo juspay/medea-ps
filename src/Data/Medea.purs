@@ -13,13 +13,13 @@ import Control.Monad.State.Trans (evalStateT)
 import Control.MonadPlus (class MonadPlus)
 import Data.AcyclicAdjacencyMap (postSet)
 import Data.AdjacencyMap (catMaybeHashMap)
-import Data.Argonaut (Json, encodeJson, jsonNull, jsonFalse, jsonTrue, jsonEmptyObject, caseJsonObject, fromObject, jsonParser, caseJson)
+import Data.Argonaut (Json, encodeJson, jsonNull, jsonFalse, jsonTrue, jsonEmptyObject, caseJsonObject, fromObject, jsonParser, caseJson, stringify)
 import Data.FoldableWithIndex (foldlWithIndex)
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.Hashable (class Hashable, hash)
 import Data.HashMap as HM
 import Data.Map as Map
-import Data.Medea.Analysis (TypeNode (..), ReducedSchema(..), reducedArray, reducedObject)
+import Data.Medea.Analysis (TypeNode (..), ReducedSchema(..), reducedStringVals, reducedArray, reducedObject)
 import Data.Medea.JSONType (JSONType(..), typeOf)
 import Data.Medea.Loader (LoaderError(..), buildSchema) --, loadSchemaFromFile, loadSchemaFromHandle)
 import Data.Medea.MedeaJSON (MJSON(..))
@@ -36,6 +36,7 @@ import Node.FS.Aff (readTextFile)
 import Foreign.Object as Object
 import Partial.Unsafe (unsafePartial)
 import Unsafe.Coerce (unsafeCoerce)
+
 
 -- | The schema-derived information attached to the current node.
 data SchemaInformation
@@ -56,7 +57,6 @@ derive instance genericSchemaInformation :: Generic SchemaInformation _
 instance showSchemaInformation :: Show SchemaInformation where
   show x = genericShow x
 
--- TODO instances for Data, NFData for SchemaInformation
 
 instance hashableSchemaInformation :: Hashable SchemaInformation where
   hash AnySchema = 0
@@ -71,7 +71,6 @@ instance hashableSchemaInformation :: Hashable SchemaInformation where
 
 -- | JSON, with additional schema-derived information as an annotation.
 
--- TODO implement after ValidJSONF
 
 newtype ValidatedJSON = ValidatedJSON (Cofree ValidJSONF SchemaInformation)
 
@@ -126,6 +125,18 @@ data ValidationError
 
 derive instance eqValidationError :: Eq ValidationError
 
+derive instance genericValidationError :: Generic ValidationError _
+
+instance showValidationError :: Show ValidationError where
+  -- Json doesn't have a show instance
+  show (WrongType j jt) = "WrongType " <> stringify j <> " type: " <> show jt
+  show (EmptyError) = "EmptyError"
+  show (NotJSON) = "NotJSON"
+  show (NotOneOfOptions j) = "NotOneOfOptions " <> stringify j
+  show (AdditionalPropFoundButBanned s1 s2) = "AdditionalPropFoundButBanned " <> s1 <> "  "  <> s2
+  show (RequiredPropertyIsMissing s1 s2) = "RequiredPropertyIsMissing " <> s1 <> s2
+  show (OutOfBoundsArrayLength s j) = "OutOfBoundsArrayLength " <> s <> " " <> stringify j 
+
 instance semigroupValidationError :: Semigroup ValidationError where
   append EmptyError x = x
   append x _ = x
@@ -170,7 +181,22 @@ checkPrim v = do
     (\null -> pure $ NullSchema :< NullF)
     (\bool -> pure $ BooleanSchema :< BooleanF bool)
     (\num -> pure $ NumberSchema :< NumberF num)
-    (\str -> pure $ StringSchema :< StringF str)
+    (\str -> do
+    let validated = pure $ StringSchema :< StringF str
+    case par of 
+      Nothing -> validated
+      Just parIdent -> do
+        mscm <- lookupSchema parIdent
+        case mscm of
+          Nothing -> validated
+          Just scm -> do
+            let validVals = reducedStringVals (scm :: ReducedSchema)
+            if (str `elem` validVals || length validVals == 0) 
+              then do
+                pure $ StringSchema :< StringF str
+              else do
+                throwError $ NotOneOfOptions v
+    )
     (\arr -> do
       case par of 
         Nothing -> pure unit

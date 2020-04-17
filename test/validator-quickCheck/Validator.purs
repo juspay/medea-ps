@@ -8,9 +8,13 @@ import Data.Argonaut as Arg
 import Data.Argonaut.Arbitrary (RandomJson(..))
 import Data.Medea (validate)
 import Data.Medea.Loader (loadSchemaFromFile)
+import Data.Medea.Schema (Schema)
+import Data.NonEmpty (NonEmpty, (:|))
 import Mote (group, test)
 import Test.QuickCheck.Combinators ((==>))
-import Test.QuickCheck (Result, quickCheck, withHelp, (<?>))
+import Test.QuickCheck (Result, arbitrary, quickCheck, quickCheckGen, withHelp, (<?>))
+import Test.QuickCheck.Gen (Gen)
+import Test.QuickCheck.Gen as Gen
 import TestM (TestPlanM, isParseError, isSchemaError, runTestM)
 
 import Test.Spec.Assertions (shouldNotSatisfy, fail)
@@ -53,6 +57,12 @@ suite = do
     "./conformance/validation/nullable-object.medea" 
     "Object Schema" 
     (isNullOr Arg.isObject)
+  testStringVals
+    "./conformance/validation/stringVals.medea"
+    ("bar" :| ["baz"])
+  testStringVals
+    "./conformance/validation/stringVals2.medea"
+    ("accountant" :| ["barber", "bishop", "baker"])
 
 
 -- helpers
@@ -88,6 +98,29 @@ testSingular fp name p = do
   where
     yesProp scm (RandomJson j) = toResult p j ==> toResult (isRight <<< runExcept <<< validate scm <<< Arg.stringify) j
     noProp scm (RandomJson j) = toResult (not <<< p) j ==> toResult (isLeft <<< runExcept <<< validate scm <<< Arg.stringify) j
+
+testStringVals :: String -> NonEmpty Array String -> TestPlanM Unit
+testStringVals fp validStrings= do
+  result <- lift $ runTestM $ loadSchemaFromFile fp
+  let name = "string is one of " <> show validStrings
+  case result of
+    Left _ ->test ("Not Left " <> name <> " file: " <> fp) (fail "unexpected left")
+    Right scm -> do
+      test ("Should Validate " <> name <> "s: " <> fp) (liftEffect $ quickCheckGen $ validationIsCorrect $ scm)
+      test ("Shouldn't Validate " <> name <> "s: " <> fp) (liftEffect $ quickCheckGen $ invalidationIsCorrect $ scm)
+  where
+    validationIsCorrect = validationTest identity isRight
+    invalidationIsCorrect = validationTest not isLeft
+    validationTest :: (Boolean -> Boolean) -> (forall a b. Either a b -> Boolean) -> Schema -> Gen Result
+    validationTest resultPredicate eitherPredicate scm = do
+      str <- genString
+      let 
+        stringArray = foldr cons [] validStrings
+        isMember = str `elem` stringArray
+        successPredicate = eitherPredicate <<< runExcept <<< validate scm <<< Arg.stringify <<< Arg.encodeJson
+      pure $ toResult resultPredicate isMember ==> toResult (successPredicate) str
+    genString :: Gen.Gen String
+    genString = Gen.oneOf $ (Gen.elements validStrings) :| [ arbitrary ]
 
 
 toResult :: forall a. (a -> Boolean) -> a -> Result

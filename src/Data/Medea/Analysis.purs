@@ -13,6 +13,7 @@ import Data.Medea.Parser.Spec.Property (propName, propSchema, propOptional)
 import Data.Medea.Parser.Spec.Schema as Schema
 import Data.Medea.Parser.Spec.Schemata as Schemata
 import Data.Medea.Parser.Spec.Type as Type
+import Data.Medea.Parser.Spec.String as String
 import Data.Natural (Natural)
 import Data.AcyclicAdjacencyMap (AcyclicAdjacencyMap)
 import Data.AcyclicAdjacencyMap as Acyclic
@@ -50,23 +51,29 @@ instance showTypeNode :: Show TypeNode where
 type ReducedTypeSpec = Array TypeNode
 type ReducedArraySpec = Tuple (Maybe Natural) (Maybe Natural)
 type ReducedObjectSpec = Tuple (HM.HashMap String (Tuple TypeNode Boolean)) Boolean
+type ReducedStringValSpec = Array String
 
 data ReducedSchema = ReducedSchema {
   reducedTypes :: ReducedTypeSpec,
+  reducedStringVals :: ReducedStringValSpec, 
   reducedArray :: ReducedArraySpec,
   reducedObject :: ReducedObjectSpec
 }
 
-mkReducedSchema :: ReducedTypeSpec -> ReducedArraySpec -> ReducedObjectSpec -> ReducedSchema
-mkReducedSchema rt ra ro 
+mkReducedSchema :: ReducedTypeSpec -> ReducedStringValSpec -> ReducedArraySpec -> ReducedObjectSpec -> ReducedSchema
+mkReducedSchema rt rsv ra ro 
   = ReducedSchema 
   { reducedTypes: rt
+  , reducedStringVals : rsv
   , reducedArray: ra
   , reducedObject: ro
   }
 -- simple getters to mimic haskell record getters
 reducedObject :: ReducedSchema -> ReducedObjectSpec
 reducedObject (ReducedSchema { reducedObject:ro }) = ro
+
+reducedStringVals :: ReducedSchema -> ReducedStringValSpec
+reducedStringVals (ReducedSchema {reducedStringVals: sv}) = sv
 
 reducedArray :: ReducedSchema -> ReducedArraySpec
 reducedArray (ReducedSchema { reducedArray:ra }) = ra
@@ -151,12 +158,13 @@ reduceSchema scm
   = do
     let reducedArraySpec = unsafeCoerce (Tuple  (minLength arraySpec) (maxLength arraySpec))
         typenodes = map (identToNode <<< Just) types
+        reducedStringValsSpec = String.toReducedSpec $ stringVals
     reducedProps <- foldM go HM.empty (properties objSpec)
     when (uncurry (>) reducedArraySpec) 
       $ throwError $ MinMoreThanMax schemaName 
-    pure $ mkReducedSchema typenodes reducedArraySpec (Tuple reducedProps (additionalAllowed objSpec))
+    pure $ mkReducedSchema typenodes reducedStringValsSpec reducedArraySpec (Tuple reducedProps (additionalAllowed objSpec))
   where
-    Schema.Specification { name: schemaName, types: (Type.Specification types), array: arraySpec, object: objSpec } = scm
+    Schema.Specification { name: schemaName, stringVals, types: (Type.Specification types), array: arraySpec, object: objSpec } = scm
     go acc prop = hashMapAlterF (checkedInsert prop) (unsafeCoerce propName prop) acc
     checkedInsert prop 
       = case _ of

@@ -6,7 +6,8 @@ import Text.Parsing.Parser (Parser)
 data MedeaParseErr 
   = IdentifierTooLong String 
   | LeadingZero String
-  | EmptyLengthSpec
+  | EmptyLengthArraySpec
+  | EmptyStringValueSpec
 
 derive instance eqMedeaParseErr :: Eq MedeaParseErr
 
