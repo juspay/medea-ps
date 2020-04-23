@@ -28,6 +28,6 @@ parseSpecification :: MedeaParser Specification
 parseSpecification = do
   _ <- parseLine 4 $ parseReservedChunk "string_values"
   items <- many $ try $ parseLine 8 parseString
-  if length items == 0 
+  if null items 
     then fail $ show EmptyStringValueSpec
     else pure $ Specification items

@@ -24,10 +24,6 @@ derive instance eqSpecification :: Eq Specification
 mkSpec :: Array Property.Specification -> Boolean -> Specification
 mkSpec p aa = Specification { properties: p, additionalAllowed: aa }
 
-defaultSpec :: Specification
-defaultSpec = mkSpec [] true
-
-
 parseSpecification :: MedeaParser Specification
 parseSpecification 
   = do

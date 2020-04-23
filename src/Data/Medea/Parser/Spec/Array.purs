@@ -7,16 +7,20 @@ import Text.Parsing.Parser (fail)
 import Text.Parsing.Parser.Combinators (try)
 
 import Data.Medea.Parser.Permutation (toPermutationWithDefault, runPermutation)
-import Data.Medea.Parser.Primitive (parseKeyVal, parseReservedChunk, parseNatural, parseLine)
+import Data.Medea.Parser.Primitive (Identifier, parseIdentifier, parseKeyVal, parseReservedChunk, parseNatural, parseLine)
 import Data.Medea.Parser.Types (MedeaParser, MedeaParseErr(..))
 
--- missing in PS - permutations, runPermutation, ToPermutation
+data Specification = Specification 
+  { minLength :: Maybe Natural
+  , maxLength :: Maybe Natural
+  , elementType :: Maybe Identifier
+  , tupleSpec :: Maybe (Array Identifier)
+  }
 
-data Specification = Specification {
-  minLength :: Maybe Natural,
-  maxLength :: Maybe Natural
-}
+-- tupleSpec with an empty list indicates an empty tuple/encoding of unit
+-- tupleSpec of Nothing indicates that there is no tuple spec at all
 
+mkSpec minLength maxLength elementType tupleSpec = Specification { minLength, maxLength, elementType, tupleSpec }
 -- getters
 minLength :: Specification -> Maybe Natural
 minLength (Specification {minLength:m}) = m
@@ -27,25 +31,42 @@ maxLength (Specification {maxLength:m}) = m
 derive instance eqSpecification :: Eq Specification
 
 defaultSpec :: Specification
-defaultSpec = Specification { minLength: Nothing, maxLength: Nothing }
+defaultSpec = Specification { minLength: Nothing, maxLength: Nothing, elementType: Nothing, tupleSpec: Nothing }
 
 combineSpec :: Specification -> Specification -> Specification
 combineSpec 
-  (Specification { minLength: a1, maxLength: b1 })
-  (Specification { minLength: a2, maxLength: b2 })
-  = Specification { minLength: a1 <|> a2, maxLength: b1 <|> b2 }
+  (Specification { minLength: a1, maxLength: b1, elementType: c1, tupleSpec: d1 })
+  (Specification { minLength: a2, maxLength: b2, elementType: c2, tupleSpec: d2 })
+  = Specification { minLength: a1 <|> a2, maxLength: b1 <|> b2, elementType: c1 <|> c2, tupleSpec: d1 <|> d2 }
 
 parseSpecification :: MedeaParser Specification
 parseSpecification = do
-  _ <- parseLine 4 $ parseReservedChunk "length"
   spec <- try permute
   case spec of 
-       Specification { minLength: Nothing, maxLength: Nothing } -> fail $ show EmptyLengthArraySpec
+       Specification { minLength: Nothing, maxLength: Nothing, elementType: Nothing, tupleSpec: Nothing } -> fail $ show EmptyLengthArraySpec
+       Specification { elementType: (Just _), tupleSpec: (Just _) } -> fail $ show ConflictingSpecRequirements
+       Specification { minLength: (Just _), tupleSpec: (Just _) } -> fail $ show ConflictingSpecRequirements
+       Specification { maxLength: (Just _), tupleSpec: (Just _) } -> fail $ show EmptyLengthArraySpec
        _ -> pure spec
   where 
-    permute = runPermutation $ (\minLength maxLength -> Specification { minLength, maxLength })
+    permute = runPermutation $ mkSpec
       <$> toPermutationWithDefault Nothing (try parseMinSpec)
       <*> toPermutationWithDefault Nothing (try parseMaxSpec)
-    parseMinSpec = parseLine 8 $ Just <$> parseKeyVal "minimum" parseNatural
-    parseMaxSpec = parseLine 8 $ Just <$> parseKeyVal "maximum" parseNatural
+      <*> toPermutationWithDefault Nothing (try parseElementType)
+      <*> toPermutationWithDefault Nothing (try parseTupleSpec)
+
+parseMinSpec = parseLine 4 $ Just <$> parseKeyVal "min_length" parseNatural
+
+parseMaxSpec = parseLine 4 $ Just <$> parseKeyVal "max_length" parseNatural
+
+parseElementType = do
+  _ <- parseLine 4 $ parseReservedChunk "element_type"
+  element <- parseLine 8 parseIdentifier <|> (fail $ show EmptyArrayElements)
+  pure $ Just element
+
+parseTupleSpec = do
+  _ <- parseLine 4 $ parseReservedChunk "tuple"
+  elemList <- many $ try $ parseLine 8 parseIdentifier
+  pure $ Just elemList
+
 

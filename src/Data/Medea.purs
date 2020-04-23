@@ -11,22 +11,20 @@ import Control.Monad.Reader.Trans (runReaderT)
 import Control.Monad.State.Class (class MonadState, gets, put)
 import Control.Monad.State.Trans (evalStateT)
 import Control.MonadPlus (class MonadPlus)
-import Data.AcyclicAdjacencyMap (postSet)
 import Data.AdjacencyMap (catMaybeHashMap)
 import Data.Argonaut (Json, encodeJson, jsonNull, jsonFalse, jsonTrue, jsonEmptyObject, caseJsonObject, fromObject, jsonParser, caseJson, stringify)
 import Data.FoldableWithIndex (foldlWithIndex)
 import Data.FunctorWithIndex (mapWithIndex)
-import Data.Hashable (class Hashable, hash)
 import Data.HashMap as HM
 import Data.Map as Map
-import Data.Medea.Analysis (TypeNode (..), ReducedSchema(..), reducedStringVals, reducedArray, reducedObject)
-import Data.Medea.JSONType (JSONType(..), typeOf)
-import Data.Medea.Loader (LoaderError(..), buildSchema) --, loadSchemaFromFile, loadSchemaFromHandle)
+import Data.Medea.Analysis (TypeNode (..), CompiledSchema(..), ArrayType(..))
+import Data.Medea.JSONType (JSONType, typeOf)
+ --, loadSchemaFromFile, loadSchemaFromHandle)
 import Data.Medea.MedeaJSON (MJSON(..))
 import Data.Medea.Parser.Primitive (Identifier(..), startIdentifier)
-import Data.Medea.Schema (Schema(..), reducedSpec, typeGraph)
-import Data.Medea.ValidJSON (ValidJSONF(..), objectToHashMap, hashmapToObject)
-import Data.Natural (natToInt)
+import Data.Medea.Schema (Schema)
+import Data.Medea.ValidJSON (ValidJSONF(..), objectToHashMap)
+import Data.Natural (Natural, natToInt, intToNat)
 import Data.NonEmpty (NonEmpty, (:|))
 import Data.NonEmpty as NonEmpty
 import Data.Set as Set
@@ -122,6 +120,7 @@ data ValidationError
   | AdditionalPropFoundButBanned String String
   | RequiredPropertyIsMissing String String
   | OutOfBoundsArrayLength String Json
+  | ImplementationError String
 
 derive instance eqValidationError :: Eq ValidationError
 
@@ -136,6 +135,7 @@ instance showValidationError :: Show ValidationError where
   show (AdditionalPropFoundButBanned s1 s2) = "AdditionalPropFoundButBanned " <> s1 <> "  "  <> s2
   show (RequiredPropertyIsMissing s1 s2) = "RequiredPropertyIsMissing " <> s1 <> s2
   show (OutOfBoundsArrayLength s j) = "OutOfBoundsArrayLength " <> s <> " " <> stringify j 
+  show (ImplementationError s) = "ImplementationError " <> s
 
 instance semigroupValidationError :: Semigroup ValidationError where
   append EmptyError x = x
@@ -144,6 +144,7 @@ instance semigroupValidationError :: Semigroup ValidationError where
 instance monoidValidationError :: Monoid ValidationError where
   mempty = EmptyError
 
+decode :: String -> Maybe Json
 decode = hush <<< jsonParser
 
 validate :: forall m. MonadPlus m => MonadError ValidationError m => Schema -> String -> m ValidatedJSON
@@ -182,29 +183,25 @@ checkPrim v = do
     (\bool -> pure $ BooleanSchema :< BooleanF bool)
     (\num -> pure $ NumberSchema :< NumberF num)
     (\str -> do
+    -- if we are dealing with a dependent string, we match against supplied values
     let validated = pure $ StringSchema :< StringF str
     case par of 
       Nothing -> validated
       Just parIdent -> do
-        mscm <- lookupSchema parIdent
-        case mscm of
-          Nothing -> validated
-          Just scm -> do
-            let validVals = reducedStringVals (scm :: ReducedSchema)
-            if (str `elem` validVals || length validVals == 0) 
-              then do
-                pure $ StringSchema :< StringF str
-              else do
-                throwError $ NotOneOfOptions v
+        scm@(CompiledSchema cs) <- lookupSchema parIdent
+        let validVals = cs.stringVals
+        if (str `elem` validVals || null validVals) 
+          then do
+            pure $ StringSchema :< StringF str
+          else do
+            throwError $ NotOneOfOptions v
     )
     (\arr -> do
       case par of 
-        Nothing -> pure unit
+        Nothing -> do
+          put (Tuple anySet Nothing)
+          (ArraySchema :< _) <<< ArrayF <$> traverse checkTypes arr
         Just parIdent -> checkArray arr parIdent
-          -- we currently don't check array contents, 
-          -- therefore we punt to AnyNode before we carry on
-      put (Tuple anySet Nothing)
-      (ArraySchema :< _ ) <<< ArrayF <$> traverse checkTypes arr
     )
     (\o -> 
       let obj = objectToHashMap o in
@@ -216,50 +213,13 @@ checkPrim v = do
       Just parIdent -> checkObject obj parIdent
     )
     v
-  where
-    lookupSchema ident = asks $ Map.lookup ident <<< reducedSpec
-    checkArray arr parIdent = do
-      maybeSchema <- lookupSchema parIdent
-      case maybeSchema of 
-        Nothing -> throwError $ NotOneOfOptions $ encodeJson arr
-        Just schema -> do
-          let (Tuple minLen maxLen) = reducedArray schema
-          when (invalidLen (<) minLen || invalidLen (>) maxLen) $
-            throwError <<< OutOfBoundsArrayLength (textify parIdent) <<< encodeJson $ arr 
-      where
-        invalidLen f Nothing = false
-        invalidLen f (Just len) = length arr `f` (natToInt $ len)
-    checkObject obj parIdent 
-      = do
-        maybeSchema <- lookupSchema parIdent
-        case maybeSchema of
-          Nothing -> throwError $ NotOneOfOptions $ encodeJson $ hashmapToObject obj
-          Just schema -> do
-            let (Tuple propsSpec additionalAllowed) = reducedObject schema
-            valsAndTypes <- catMaybeHashMap <$> (mergeHashMapsWithKeyM (combine additionalAllowed) propsSpec obj)
-            checkedObj <- traverse assess valsAndTypes
-            pure $ ObjectSchema :< ObjectF checkedObj
-      where
-        assess (Tuple val typeNode) = do
-                put (Tuple (typeNode :| Set.empty) Nothing) 
-                checkTypes val
-        -- combine is used to merge propertySpec with the actual object's property in a monadic context.
-        -- it returns Just (value, the type it must match against) inside the monadic context
-        -- returns nothing when the property must be removed
-        -- 1. only property spec found
-        combine :: forall m. MonadError ValidationError m => Boolean -> String -> These (Tuple TypeNode Boolean) (Json) -> m (Maybe (Tuple Json TypeNode))
-        combine _ propName (This (Tuple _ isOptional)) = do
-          unless isOptional $
-            throwError <<< RequiredPropertyIsMissing (textify parIdent) $ propName
-          pure Nothing
-        -- 2. No property spec found - ie this is an additional property
-        combine additionalAllowed propName (That val) = do
-          unless additionalAllowed $
-            throwError $ AdditionalPropFoundButBanned (textify parIdent) $ propName
-          pure $ Just (Tuple val AnyNode)
-        -- 3. we found a property spec
-        combine _ _ (Both (Tuple typeNode _) val) = 
-          pure $ Just (Tuple val typeNode)
+
+lookupSchema :: forall m. MonadReader Schema m => MonadError ValidationError m => Identifier -> m CompiledSchema
+lookupSchema ident = do
+  mscm <- asks $ Map.lookup ident <<< unwrap
+  case mscm of
+    Nothing -> throwError $ ImplementationError "Unreachable state: we should not be able to find this schema"
+    Just scm -> pure scm
 
 mergeHashMapsWithKeyM :: forall m k v1 v2 v3. Monad m => Eq k => Hashable k => (k -> These v1 v2 -> m v3) -> HashMap k v1 -> HashMap k v2 -> m (HashMap k v3)
 mergeHashMapsWithKeyM f hm1 hm2 = traverse (uncurry f) $ pairKeyVal $ merged
@@ -273,6 +233,56 @@ joinThisThat :: forall a b. These a b -> These a b -> These a b
 joinThisThat = unsafePartial joinThisThat'
 joinThisThat' :: forall a b. Partial => These a b -> These a b -> These a b
 joinThisThat' (This x) (That y) = Both x y
+
+checkArray :: forall m. Alternative m => MonadReader Schema m => MonadState (Tuple (NonEmpty Set TypeNode) (Maybe Identifier)) m => MonadError ValidationError m => Array Json -> Identifier -> m (Cofree ValidJSONF SchemaInformation)
+checkArray arr parIdent = do
+  (CompiledSchema cs) <- lookupSchema parIdent
+  let arrLen = length arr
+  when (compareMaybe (<) arrLen cs.minListLen 
+     || compareMaybe (>) arrLen cs.maxListLen) $
+    throwError <<< OutOfBoundsArrayLength (textify parIdent) <<< encodeJson $ arr 
+  let valsAndTypes = pairValsWithTypes $ cs.arrayTypes
+  checkedArray <- traverse assess valsAndTypes
+  pure $ ArraySchema :< ArrayF checkedArray
+  where
+    assess (Tuple val typeNode) = do
+      put (Tuple (typeNode :| Set.empty) Nothing)
+      checkTypes val
+    pairValsWithTypes Nothing = map (_ /\ AnyNode) arr
+    pairValsWithTypes (Just (ListType node)) = map (_ /\ node) arr
+    pairValsWithTypes (Just (TupleType nodes)) = zip arr nodes
+    compareMaybe :: (Int -> Int -> Boolean) -> Int -> Maybe Natural -> Boolean
+    compareMaybe f i mn = maybe false (\n -> f i $ natToInt n) mn
+
+
+checkObject :: forall m. Alternative m => MonadReader Schema m => MonadState (Tuple (NonEmpty Set TypeNode) (Maybe Identifier)) m => MonadError ValidationError m => HashMap String Json -> Identifier -> m (Cofree ValidJSONF SchemaInformation)
+checkObject obj parIdent 
+  = do
+    schema@(CompiledSchema cs) <- lookupSchema parIdent
+    valsAndTypes <- pairPropertySchemaAndVal obj (cs.props) (cs.additionalProps) parIdent
+    checkedObj <- traverse assess valsAndTypes
+    pure $ ObjectSchema :< ObjectF checkedObj
+  where
+    assess (Tuple val typeNode) = do
+            put (Tuple (typeNode :| Set.empty) Nothing) 
+            checkTypes val
+
+pairPropertySchemaAndVal :: forall m. Alternative m => MonadReader Schema m => MonadError ValidationError m => HashMap String Json -> HashMap String (Tuple TypeNode Boolean) -> Boolean -> Identifier -> m (HashMap String (Tuple Json TypeNode))
+pairPropertySchemaAndVal obj properties extraAllowed parIdent 
+  = do
+    mappedObj <- traverse pairProperty $ mapWithIndex Tuple obj
+    traverse_ isMatched $ (mapWithIndex Tuple (properties :: HashMap String (Tuple TypeNode Boolean)) :: HashMap String (Tuple String (Tuple TypeNode Boolean)))
+    pure mappedObj
+    where
+      pairProperty (Tuple propName j) 
+        = case HM.lookup propName properties of
+              Just (Tuple typeNode _) -> pure (Tuple j typeNode)
+              Nothing | extraAllowed -> pure (Tuple j AnyNode)
+                  | otherwise -> throwError $ AdditionalPropFoundButBanned (textify parIdent) $ propName
+      isMatched :: String /\ TypeNode /\ Boolean -> m Unit
+      isMatched (propName /\ _ /\ optional) = when 
+            (isNothing (HM.lookup propName obj) && not optional) $ 
+              throwError <<< RequiredPropertyIsMissing (textify parIdent) $ propName
 
 -- checkCustoms removes all nonCustom nodes from the typenode set and 
 -- checks the value against each until one succeeds
@@ -288,15 +298,11 @@ checkCustoms v
     -- we need to turn the set into an array here as Sets are not functors in PS
     asum <<< map checkCustom $ customNodeArr
   where
-    isCustom (CustomNode _) = true
-    isCustom _   = false
-    -- check value against successfors of a custom node
-    checkCustom = unsafePartial checkCustom'
-    checkCustom' :: Partial => TypeNode -> m (Cofree ValidJSONF SchemaInformation)
-    checkCustom' node@(CustomNode ident) = do
-      ne <- asks (forceNonEmptyFromSet <<< postSet node <<< typeGraph)
-      put (Tuple ne (Just ident))
+    checkCustom node@(CustomNode ident) = do
+      (CompiledSchema cs) <- lookupSchema ident 
+      put (Tuple cs.typesAs (Just ident))
       (_ $> (UserDefined <<< textify $ ident)) <$> checkTypes v
+    checkCustom _ = throwError $ ImplementationError "checkCustom received non-custom as input"
 
 asum :: forall t f a. Foldable t => Alternative f => t (f a) -> f a
 asum = foldr (<|>) empty
@@ -317,3 +323,7 @@ anySet = AnyNode :| Set.empty
 
 textify :: Identifier -> String
 textify (Identifier s) = s
+
+isCustom :: TypeNode -> Boolean
+isCustom (CustomNode _) = true
+isCustom _ = false

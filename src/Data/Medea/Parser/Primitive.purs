@@ -23,6 +23,8 @@ import Data.Medea.Parser.Types (MedeaParser, MedeaParseErr(..))
 
 newtype Identifier = Identifier String
 
+derive instance newtypeIdentifier :: Newtype Identifier _
+
 derive instance eqIdentifier :: Eq Identifier
 
 derive instance ordIdentifier :: Ord Identifier

@@ -4,8 +4,8 @@ import MedeaPrelude
 
 import Control.Monad.Error.Class (class MonadError, throwError)
 import Control.Monad.Except (runExcept)
-import Data.Medea.Schema (Schema, mkSchema)
-import Data.Medea.Analysis(AnalysisError(..), intoMap, intoEdges, intoAcyclic, checkStartSchema)
+import Data.Medea.Schema (Schema(..))
+import Data.Medea.Analysis(AnalysisError(..), compileSchemata)
 import Data.Medea.Parser.Spec.Schemata as Schemata
 import Text.Parsing.Parser (ParseError, runParser)
 import Node.Encoding (Encoding(..))
@@ -16,8 +16,6 @@ data LoaderError
     NotUtf8
   | -- | An identifier was longer than allowed.
     IdentifierTooLong
-  | -- | A natural number had a leading 0.
-    LeadingZeroNatural
   | -- | A length specification had no minimum/maximum specification.
     EmptyLengthSpec
   | -- | Parsing failed.
@@ -28,20 +26,32 @@ data LoaderError
     SelfTypingSchema
   | -- | A schema was defined more than once.
     MultipleSchemaDefinition String
-  | -- | name of the undefined schema
-    MissingSchemaDefinition String
+  | -- | name of the undefined schema  and the schema that references it.
+    MissingSchemaDefinition String String
   | -- | A schema with non-start reserved naming identifier.
     SchemaNameReserved String -- name of the reserved identifier
-  | -- | There is at least one isolated schema.
-    IsolatedSchemata
-  | -- | Value for `$object-schema` is an undefined schema.
-    MissingPropSchemaDefinition String
+  | -- | An isolated schema was found.
+    IsolatedSchemata String
+  | -- | name of undefined property schema and the schema that references it
+    MissingPropSchemaDefinition String String
+  | -- | name of undefined list element type and the schema that references it.
+    MissingListSchemaDefinition String String
+  | -- | name of the underfined tuple positional schema and the schema that references it
+    MissingTupleSchemaDefinition String String
   | -- | Minimum length specification was more than maximum.
     MinimumLengthGreaterThanMaximum String -- name of the schema
   | -- | A property specifier section has two properties with the same name.
     -- | Arguments are the parent Schema name and the property name.
     MultiplePropSchemaDefinition String String
   | UnexpectedTypeNodeErr
+  | -- | Schema has a Property specification but no $object type
+    PropertySpecWithoutObjectType String
+  | -- | Schema has a List specification but no $arry type
+    ListSpecWithoutArrayType String
+  | -- | Schema has a Tuple specification but no $array type
+    TupleSpecWithoutArrayType String
+  | -- | Schema has a String specification but no $string type
+    StringSpecWithoutStringType String
 
 derive instance genericLoaderError :: Generic LoaderError _
 
@@ -73,22 +83,27 @@ fromutf8 sourceName utf8
 
 analyze :: forall m. MonadError LoaderError m => Schemata.Specification -> m Schema
 analyze scm 
-  = case runExcept go of
+  = case runExcept $ compileSchemata scm of
+    Left (DuplicateSchemaName ident) -> throwError $ MultipleSchemaDefinition (unwrap ident)
     Left (UnexpectedTypeNode) -> throwError $ UnexpectedTypeNodeErr
-    Left (DuplicateSchemaName ident) -> throwError $ MultipleSchemaDefinition $ show ident
     Left NoStartSchema -> throwError StartSchemaMissing
-    Left (DanglingTypeReference ident) -> throwError $ MissingSchemaDefinition $ show ident
+    Left (DanglingTypeReference danglingRef parSchema) -> throwMissing danglingRef parSchema
+    Left (DanglingTypeRefProp danglingRef parSchema) -> throwMissing danglingRef parSchema
+    Left (DanglingTypeRefList danglingRef parSchema) -> throwMissing danglingRef parSchema
+    Left (DanglingTypeRefTuple danglingRef parSchema) -> throwMissing danglingRef parSchema
     Left TypeRelationIsCyclic -> throwError SelfTypingSchema
-    Left (ReservedDefined ident) -> throwError $ SchemaNameReserved $ show ident
-    Left UnreachableSchemata -> throwError IsolatedSchemata
-    Left (DanglingTypeRefProp ident) -> throwError $ MissingPropSchemaDefinition $ show ident
-    Left (MinMoreThanMax ident) -> throwError $ MinimumLengthGreaterThanMaximum $ show ident
-    Left (DuplicatePropName ident prop) -> throwError $ MultiplePropSchemaDefinition (show ident) (unwrap prop)
-    Right g -> pure g
-  where
-    go = do
-      m <- intoMap scm
-      startSchema <- checkStartSchema m
-      edges <- intoEdges m startSchema
-      tg <- intoAcyclic edges
-      pure $ mkSchema tg m
+    Left (ReservedDefined ident) -> throwError $ SchemaNameReserved $ unwrap ident
+    Left (DefinedButNotUsed ident) -> throwError $ IsolatedSchemata $ unwrap ident
+    Left (MinMoreThanMax ident) -> throwError $ MinimumLengthGreaterThanMaximum $ unwrap ident
+    Left (DuplicatePropName ident prop) -> throwError $ MultiplePropSchemaDefinition (unwrap ident) (unwrap prop)
+    Left (PropertyWithoutObject schema) ->
+      throwError $ PropertySpecWithoutObjectType (unwrap schema)
+    Left (ListWithoutArray schema) ->
+      throwError $ ListSpecWithoutArrayType (unwrap schema)
+    Left (TupleWithoutArray schema) ->
+      throwError $ TupleSpecWithoutArrayType (unwrap schema)
+    Left (StringValsWithoutString schema) ->
+      throwError $ StringSpecWithoutStringType (unwrap schema)
+    Right g -> pure $ Schema g
+  where 
+    throwMissing danglingRef parSchema = throwError $ MissingSchemaDefinition (unwrap danglingRef) (unwrap parSchema)

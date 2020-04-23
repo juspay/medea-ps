@@ -11,19 +11,19 @@ import Data.Medea.Parser.Spec.Type as Type
 import Data.Medea.Parser.Spec.String as String
 import Text.Parsing.Parser.Combinators (try)
 
-data Specification 
-  = Specification 
+
+data Specification = Specification 
   { name :: Identifier
   , types :: Type.Specification
   , stringVals :: String.Specification
   , array :: Array.Specification
-  , object :: Object.Specification
+  , object :: Maybe (Object.Specification)
   }
 
 name :: Specification -> Identifier
 name (Specification { name: n}) = n
 
-mkSpec :: Identifier -> Type.Specification -> String.Specification -> Array.Specification -> Object.Specification -> Specification
+mkSpec :: Identifier -> Type.Specification -> String.Specification -> Array.Specification -> Maybe Object.Specification -> Specification
 mkSpec name types stringVals array object 
   = Specification  
   { name
@@ -43,5 +43,5 @@ parseSpecification
        <$> toPermutationWithDefault Type.defaultSpec (try Type.parseSpecification)
        <*> toPermutationWithDefault String.defaultSpec (try String.parseSpecification)
        <*> toPermutationWithDefault Array.defaultSpec (try Array.parseSpecification)
-       <*> toPermutationWithDefault Object.defaultSpec (try Object.parseSpecification)
+       <*> toPermutationWithDefault Nothing (Just <$> try Object.parseSpecification)
 
