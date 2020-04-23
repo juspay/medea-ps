@@ -11,6 +11,7 @@ import Data.Medea.Schema (Schema)
 
 import Mote (group, test)
 
+
 suite :: TestPlanM Unit
 suite = do
   let 

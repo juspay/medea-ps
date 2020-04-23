@@ -12,14 +12,21 @@ import Mote (group, test)
 suite :: TestPlanM Unit
 suite = do
   let prefix = "./conformance/schema-builder"
-  testFiles <- lift $ listMedeaFiles prefix
+  testFilesPass <- lift $ listMedeaFiles (prefix <> "/pass")
+  testFilesFail <- lift $ listMedeaFiles (prefix <> "/fail")
   group "invalid schemata cases" $ do
-    traverse_ makeSchemaTest $ testFiles
+    traverse_ makeFailTest $ testFilesFail
+  group "Valid schemata cases" $ do
+    traverse_ makePassTest $ testFilesPass
 
-makeSchemaTest :: String -> TestPlanM Unit
-makeSchemaTest fp = do
+makeFailTest :: String -> TestPlanM Unit
+makeFailTest fp = do
   test (" Schema case (shouldn't build) :" <> fp) do
     result <- runTestM <<< loadSchemaFromFile $ fp
     result `shouldSatisfy` isSchemaError
 
-
+makePassTest :: String -> TestPlanM Unit
+makePassTest fp = do
+  test (" Schema case (should build) :" <> fp) do
+    result <- runTestM <<< loadSchemaFromFile $ fp
+    result `shouldSatisfy` isRight

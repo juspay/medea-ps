@@ -1,0 +1,11 @@
+$schema $start
+    $type
+        $number
+
+$schema foo
+    $type
+        $boolean
+
+$schema foo
+    $type
+        $string

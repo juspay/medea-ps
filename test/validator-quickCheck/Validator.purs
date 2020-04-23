@@ -51,7 +51,7 @@ suite = do
     (isNullOr Arg.isNumber)
   testSingular 
     "nullable-string.medea" 
-    "String Schema" 
+    "String Schema"
     (isNullOr Arg.isString)
   testSingular 
     "nullable-array.medea" 
@@ -236,7 +236,7 @@ testSingular fp name p = testWrap name fp
     genJson = unsafeCoerce (arbitrary :: Gen RandomJson)
 
 testStringVals :: String -> NonEmpty Array String -> TestPlanM Unit
-testStringVals fp validStrings= 
+testStringVals fp validStrings = 
   let name = "string is one of " <> show validStrings in
   testWrap' name fp
     (\scm -> do
