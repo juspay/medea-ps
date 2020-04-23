@@ -5,7 +5,7 @@ import Data.Medea.Parser.Primitive (parseLine, parseReservedChunk)
 import Data.Medea.Parser.Spec.Property as Property
 import Data.Medea.Parser.Types (MedeaParser)
 import Text.Parsing.Parser.Combinators (option, try)
-import Debug.Trace (traceM)
+
 data Specification 
   = Specification 
   { properties :: Array Property.Specification
