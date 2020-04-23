@@ -14,9 +14,6 @@ import Partial.Unsafe (unsafePartial)
 -- this module is used to tack combinators onto `purescript-parsing`
 -- in order to shore up semantics with what we're using out of MegaParsec
 -- and other haskell libs
-import Debug.Trace (traceM)
-
-
 
 ---BUG - i suspect takeWhile1P is not consuming input correctly
 takeWhile1P :: forall m. Monad m => String -> (Char -> Boolean) -> ParserT String m (Array Char)
@@ -43,12 +40,4 @@ isWhitespace = R.test wsRegex <<< String.singleton
 
 eol :: forall s m. StringLike s => Monad m => ParserT s m Unit
 eol = (void $ string "\n") <|> (void $ string "\r\n") <|> eof <|> fail "expected EOL"
-
-
-debugParser :: forall s m a. Monad m => ParserT s m a
-debugParser = do
-  input <- gets \(ParseState input _ _) -> input
-  traceM input
-  fail "trace"
-
 

@@ -19,7 +19,7 @@ data Specification = Specification
 
 -- tupleSpec with an empty list indicates an empty tuple/encoding of unit
 -- tupleSpec of Nothing indicates that there is no tuple spec at all
-
+mkSpec :: Maybe Natural -> Maybe Natural -> Maybe Identifier -> Maybe (Array Identifier) -> Specification
 mkSpec minLength maxLength elementType tupleSpec = Specification { minLength, maxLength, elementType, tupleSpec }
 -- getters
 minLength :: Specification -> Maybe Natural
@@ -55,15 +55,19 @@ parseSpecification = do
       <*> toPermutationWithDefault Nothing (try parseElementType)
       <*> toPermutationWithDefault Nothing (try parseTupleSpec)
 
+parseMinSpec :: MedeaParser (Maybe Natural)
 parseMinSpec = parseLine 4 $ Just <$> parseKeyVal "min_length" parseNatural
 
+parseMaxSpec :: MedeaParser (Maybe Natural)
 parseMaxSpec = parseLine 4 $ Just <$> parseKeyVal "max_length" parseNatural
 
+parseElementType :: MedeaParser (Maybe Identifier)
 parseElementType = do
   _ <- parseLine 4 $ parseReservedChunk "element_type"
   element <- parseLine 8 parseIdentifier <|> (fail $ show EmptyArrayElements)
   pure $ Just element
 
+parseTupleSpec :: MedeaParser (Maybe (Array Identifier))
 parseTupleSpec = do
   _ <- parseLine 4 $ parseReservedChunk "tuple"
   elemList <- many $ try $ parseLine 8 parseIdentifier
