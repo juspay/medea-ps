@@ -19,6 +19,8 @@ import Test.QuickCheck.Gen (Gen)
 import Test.QuickCheck.Gen as Gen
 import TestM (TestPlanM, isParseError, isSchemaError, runTestM)
 
+import Unsafe.Coerce (unsafeCoerce)
+
 import Test.Spec.Assertions (shouldNotSatisfy, fail)
 
 import Effect.Class (liftEffect)
@@ -227,12 +229,11 @@ testSingular fp name p = testWrap name fp
     test ("should build: " <> fp) (result `shouldNotSatisfy` isSchemaError)
   )
   (\scm -> do
-    test ("should validate " <> name <> "s: " <> fp) (liftEffect $ quickCheck (\rj -> yesProp scm rj))
-    test ("should not validate non-" <> name <> "s: " <> fp) (liftEffect $ quickCheck (\rj -> noProp scm rj))
+    test ("should validate " <> name <> "s: " <> fp) (liftEffect $ yesProp genJson p scm )
+    test ("should not validate non-" <> name <> "s: " <> fp) (liftEffect $ noProp genJson (not <<< p) scm)
   )
   where
-    yesProp scm (RandomJson j) = toResult p j ==> toResult (isRight <<< runExcept <<< validate scm <<< Arg.stringify) j
-    noProp scm (RandomJson j) = toResult (not <<< p) j ==> toResult (isLeft <<< runExcept <<< validate scm <<< Arg.stringify) j
+    genJson = unsafeCoerce (arbitrary :: Gen RandomJson)
 
 testStringVals :: String -> NonEmpty Array String -> TestPlanM Unit
 testStringVals fp validStrings= 
