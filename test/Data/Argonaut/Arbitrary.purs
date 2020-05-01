@@ -1,4 +1,13 @@
-module Data.Argonaut.Arbitrary where
+module Data.Argonaut.Arbitrary 
+  ( RandomJson(..)
+  , RandomJsonArray (..)
+  , ObjGenOpts (..)
+  , arbitraryObj
+  , genJson
+  , genArrayJson
+  , arbitraryJsonArray
+  )
+  where
 
 import MedeaPrelude
 import Test.QuickCheck (class Arbitrary, arbitrary)

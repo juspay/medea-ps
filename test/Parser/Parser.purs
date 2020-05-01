@@ -3,8 +3,7 @@ module Test.Parser where
 import MedeaPrelude hiding (group)
 import Control.Monad.Trans.Class (lift)
 import Test.Spec.Assertions (shouldSatisfy, shouldNotSatisfy)
-import TestM.Util (listMedeaFiles)
-import TestM (isParseError, runTestM, TestPlanM)
+import TestM (isParseError, runTestM, TestPlanM, listMedeaFiles)
 
 import Data.Medea.Loader(LoaderError, loadSchemaFromFile)
 import Data.Medea.Schema (Schema)

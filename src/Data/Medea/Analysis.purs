@@ -1,11 +1,18 @@
-module Data.Medea.Analysis where
+module Data.Medea.Analysis 
+  ( AnalysisError(..)
+  , ArrayType (..)
+  , CompiledSchema (..)
+  , TypeNode (..)
+  , compileSchemata
+  ) 
+  where
 
 import MedeaPrelude
 import Control.Alternative ((<|>))
 import Control.Monad.Error.Class (class MonadError, throwError)
 import Data.HashMap as HM
 import Data.Medea.JSONType (JSONType(..))
-import Data.Medea.Parser.Primitive (Identifier, MedeaString, startIdentifier, isReserved, isStartIdent, tryPrimType, typeOf)
+import Data.Medea.Parser.Primitive (Identifier, MedeaString, ReservedIdentifier(..), identFromReserved, isReserved, isStartIdent, tryPrimType, typeOf)
 import Data.Medea.Parser.Spec.Array as Array
 import Data.Medea.Parser.Spec.Object (properties, additionalAllowed)
 import Data.Medea.Parser.Spec.Property (propName, propSchema, propOptional)
@@ -143,7 +150,7 @@ compileSchema scm@(Schema.Specification { name: schemaName,  types: (Type.Specif
       Just {head, tail} -> head :| Set.fromFoldable tail
 
 checkStartSchema :: forall m. MonadError AnalysisError m => Map Identifier CompiledSchema -> m Unit
-checkStartSchema mic = case Map.lookup startIdentifier mic of
+checkStartSchema mic = case Map.lookup (identFromReserved RStart) mic of
   Nothing -> throwError NoStartSchema
   Just scm -> pure unit
 

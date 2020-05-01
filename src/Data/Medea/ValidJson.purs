@@ -1,11 +1,14 @@
-module Data.Medea.ValidJSON where
+module Data.Medea.ValidJSON 
+  ( ValidJSONF(..)
+  , objectToHashMap
+  )
+  where
 
 import MedeaPrelude
-import Data.Argonaut (Json)
 import Data.Eq (class Eq1)
 import Data.FoldableWithIndex (foldrWithIndex)
 import Data.HashMap as HM
-import Data.Medea.MedeaJSON (MJSON(..))
+import Data.Medea.MedeaJSON (MJSON)
 import Foreign.Object (Object)
 import Foreign.Object as Obj
 
@@ -23,7 +26,6 @@ derive instance eqValidJSONF :: Eq a => Eq (ValidJSONF a)
 derive instance functorValidJSONF :: Functor ValidJSONF 
 
 derive instance genericValidJSONF :: Generic (ValidJSONF a) _
--- TODO: instance for Typeable, Data, NFData, Show1, 
 
 instance foldableValidJSONF :: Foldable ValidJSONF where
   foldMap _ (AnythingF _) = mempty

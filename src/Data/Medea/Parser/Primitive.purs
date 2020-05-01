@@ -1,4 +1,21 @@
-module Data.Medea.Parser.Primitive where
+module Data.Medea.Parser.Primitive 
+  ( Identifier (..)
+  , MedeaString (..)
+  , PrimTypeIdentifier (..)
+  , ReservedIdentifier (..)
+  , identFromReserved
+  , isReserved
+  , isStartIdent
+  , parseIdentifier
+  , parseKeyVal
+  , parseLine
+  , parseNatural
+  , parseReserved
+  , parseString
+  , tryPrimType
+  , typeOf
+  )
+  where
 
 import MedeaPrelude
 import Control.Alternative ((<|>))
@@ -9,7 +26,7 @@ import Data.Int as Int
 import Data.List (List)
 import Data.Natural (Natural)
 import Data.Natural as Nat
-import Data.String (codePointFromChar, length, singleton, uncons) as String
+import Data.String (codePointFromChar, length, singleton) as String
 import Data.String.CodeUnits (fromCharArray) as String
 import Text.Parsing.Parser (fail)
 import Text.Parsing.Parser.Combinators (manyTill)
@@ -39,25 +56,86 @@ parseIdentifier = do
   ident <- String.fromCharArray <$> takeWhile1P "Non-Seperator" (not <<< isSeperatorOrControl)
   checkedConstruct Identifier ident
 
-
-startIdentifier :: Identifier
-startIdentifier = Identifier "$start"
-
-newtype ReservedIdentifier = ReservedIdentifier String
+data ReservedIdentifier 
+  = RSchema
+  | RStart
+  | RType
+  | RStringValues
+  | RProperties
+  | RPropertyName
+  | RPropertySchema
+  | RAdditionalPropertiesAllowed
+  | ROptionalProperty
+  | RMinLength
+  | RMaxLength
+  | RElementType
+  | RTuple
+  | RArray
+  | RBoolean
+  | RNull
+  | RNumber
+  | RObject
+  | RString
 
 derive instance eqReservedIdentifier :: Eq ReservedIdentifier
 
-tryReserved :: Identifier -> Maybe ReservedIdentifier
-tryReserved (Identifier ident) = 
-  case String.uncons ident of
-    Just ht -> 
-      if ht.head == String.codePointFromChar '$' 
-        then Just $ ReservedIdentifier ident
-        else Nothing
-    Nothing -> Nothing
+derive instance genericReservedIdentifier :: Generic ReservedIdentifier _
 
-forgetReserved :: ReservedIdentifier -> Identifier
-forgetReserved (ReservedIdentifier a) = Identifier a
+instance showReservedIdentifier :: Show ReservedIdentifier where
+  show x = genericShow x
+
+fromReserved :: ReservedIdentifier -> String
+fromReserved RSchema = "$schema"
+fromReserved RStart = "$start"
+fromReserved RType = "$type"
+fromReserved RStringValues = "$string_values"
+fromReserved RProperties = "$properties"
+fromReserved RPropertyName = "$property-name"
+fromReserved RPropertySchema = "$property-schema"
+fromReserved RAdditionalPropertiesAllowed = "$additional-properties-allowed"
+fromReserved ROptionalProperty = "$optional-property"
+fromReserved RMinLength = "$min_length"
+fromReserved RMaxLength = "$max_length"
+fromReserved RElementType = "$element_type"
+fromReserved RTuple = "$tuple"
+fromReserved RArray = "$array"
+fromReserved RBoolean = "$boolean"
+fromReserved RNull = "$null"
+fromReserved RNumber = "$number"
+fromReserved RObject = "$object"
+fromReserved RString = "$string"
+
+identFromReserved :: ReservedIdentifier -> Identifier
+identFromReserved = Identifier <<< fromReserved
+
+parseReserved :: ReservedIdentifier -> MedeaParser Identifier
+parseReserved reserved = do
+  ident <- String.fromCharArray <$> takeWhile1P "Non-seperator" (not <<< isSeperatorOrControl)
+  let reservedText = fromReserved reserved
+  when (ident /= reservedText) $ fail $ show $ ExpectedReservedIdentifier $ reservedText
+  checkedConstruct Identifier ident
+
+tryReserved :: String -> Maybe ReservedIdentifier
+tryReserved "$schema" = Just RSchema
+tryReserved "$start" = Just RStart
+tryReserved "$type" = Just RType
+tryReserved "$string_values" = Just RStringValues
+tryReserved "$properties" = Just RProperties
+tryReserved "$property-name" = Just RPropertyName
+tryReserved "$property-schema" = Just RPropertySchema
+tryReserved "$additional-properties-allowed" = Just RAdditionalPropertiesAllowed
+tryReserved "$optional-property" = Just ROptionalProperty
+tryReserved "$min_length" = Just RMinLength
+tryReserved "$max_length" = Just RMaxLength
+tryReserved "$element_type" = Just RElementType
+tryReserved "$tuple" = Just RTuple
+tryReserved "$array" = Just RArray
+tryReserved "$boolean" = Just RBoolean
+tryReserved "$null" = Just RNull
+tryReserved "$number" = Just RNumber
+tryReserved "$object" = Just RObject
+tryReserved "$string" = Just RString
+tryReserved _         = Nothing
 
 newtype PrimTypeIdentifier = PrimTypeIdentifier JSONType
 
@@ -77,17 +155,17 @@ parsePrimType
     <|> string "$string" $> JSONString
     )
 
-
 tryPrimType :: Identifier -> Maybe PrimTypeIdentifier
-tryPrimType (Identifier ident) = PrimTypeIdentifier <$>
-  case ident of
-    "$null" -> Just JSONNull
-    "$boolean" -> Just JSONBoolean
-    "$object" -> Just JSONObject
-    "$array" -> Just JSONArray
-    "$number" -> Just JSONNumber
-    "$string" -> Just JSONString
-    _ -> Nothing
+tryPrimType (Identifier ident) = tryReserved ident >>= reservedToPrim
+
+reservedToPrim :: ReservedIdentifier -> Maybe PrimTypeIdentifier
+reservedToPrim RNull = Just <<< PrimTypeIdentifier $ JSONNull
+reservedToPrim RBoolean = Just <<< PrimTypeIdentifier $ JSONBoolean
+reservedToPrim RObject = Just <<< PrimTypeIdentifier $ JSONObject
+reservedToPrim RArray = Just <<< PrimTypeIdentifier $ JSONArray
+reservedToPrim RNumber = Just <<< PrimTypeIdentifier $ JSONNumber
+reservedToPrim RString = Just <<< PrimTypeIdentifier $ JSONString
+reservedToPrim _ = Nothing
 
 forgetPrimType :: PrimTypeIdentifier -> Identifier
 forgetPrimType ident = Identifier $ case typeOf ident of
@@ -99,10 +177,10 @@ forgetPrimType ident = Identifier $ case typeOf ident of
   JSONString -> "$string"
 
 isReserved :: Identifier -> Boolean
-isReserved = isJust <<< tryReserved
+isReserved = isJust <<< tryReserved <<< unwrap
 
 isStartIdent :: Identifier -> Boolean
-isStartIdent = (_ == startIdentifier)
+isStartIdent = (_ == Just RStart) <<< tryReserved <<< unwrap
 
 parseNatural :: MedeaParser Natural
 parseNatural = do
@@ -146,17 +224,12 @@ checkedConstruct f t =
     then fail $ show  $ IdentifierTooLong t
     else pure <<< f $ t
 
-parseReservedChunk :: String -> MedeaParser ReservedIdentifier
-parseReservedChunk identName = do
-  ident <- string $ "$" <> identName
-  checkedConstruct ReservedIdentifier ident
-
 isSeperatorOrControl :: Char -> Boolean
 isSeperatorOrControl c = isSeparator c || isControl c
 
 parseLine :: forall a. Int -> MedeaParser a -> MedeaParser a
 parseLine spaces p = (replicateM_ spaces (char ' ')) *> p <* eol
 
-parseKeyVal :: forall a. String -> MedeaParser a -> MedeaParser a
-parseKeyVal key = ((parseReservedChunk key *> char ' ' ) *> _)
+parseKeyVal :: forall a. ReservedIdentifier -> MedeaParser a -> MedeaParser a
+parseKeyVal key = ((parseReserved key *> char ' ' ) *> _)
 

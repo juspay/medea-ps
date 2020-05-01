@@ -5,7 +5,7 @@ import Control.Monad.Except (runExcept)
 import Control.Monad.Trans.Class (lift)
 import Data.Argonaut (class EncodeJson, Json)
 import Data.Argonaut as Arg
-import Data.Argonaut.Arbitrary (RandomJson(..), ObjGenOpts(..), arbitraryObj, arbitraryJsonArray, genJson, genArrayJson)
+import Data.Argonaut.Arbitrary (ObjGenOpts(..), RandomJson(..), arbitraryObj, genArrayJson, genJson)
 import Data.Medea (validate)
 import Data.Medea.Loader (loadSchemaFromFile, LoaderError)
 import Data.Medea.Schema (Schema)
@@ -15,12 +15,11 @@ import Effect.Class (class MonadEffect, liftEffect)
 import Foreign.Object as Obj
 import Mote (group, test)
 import Test.QuickCheck.Combinators ((==>))
-import Test.QuickCheck (class Testable, Result, arbitrary, quickCheck, quickCheckGen, withHelp, (<?>), quickCheckGenWithSeed)
+import Test.QuickCheck (class Testable, Result, arbitrary, quickCheckGen, withHelp)
 import Test.QuickCheck.Gen (Gen)
 import Test.QuickCheck.Gen as Gen
-import TestM (TestPlanM, isParseError, isSchemaError, runTestM)
+import TestM (TestPlanM, isParseError, isSchemaError, runTestM, appendPath)
 
-import Random.LCG (mkSeed)
 
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -228,7 +227,7 @@ data TupleTestParams = TupleTestParams
   }
 
 prependTestDir :: String -> String
-prependTestDir s = "./conformance/validation/" <> s
+prependTestDir s = appendPath "./conformance/validation/" s
 
   -- due to Mote and Spec preventing Effects from within a group/describe, 
   -- we need to execute effects outside the group or inside the test only
@@ -308,7 +307,6 @@ propTest haveProp propName p j
     (\obj -> maybe haveProp (p) $ Obj.lookup propName obj)
     j
 
-
 isNullOr :: (Json -> Boolean) -> (Json -> Boolean)
 isNullOr f = (||) <$> Arg.isNull <*> f
 
@@ -324,8 +322,6 @@ testAny fp name
     )
   where
     go scm (RandomJson j) = isRight $ runExcept <<< validate scm <<< Arg.stringify $ j 
-
-
 
 testSingular :: String -> String -> (Json -> Boolean) -> TestPlanM Unit
 testSingular fp name p = testWrap name fp

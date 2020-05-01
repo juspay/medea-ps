@@ -1,4 +1,9 @@
-module Data.Medea.Loader where
+module Data.Medea.Loader 
+  ( LoaderError(..)
+  , buildSchema
+  , loadSchemaFromFile
+  )
+  where
 
 import MedeaPrelude
 

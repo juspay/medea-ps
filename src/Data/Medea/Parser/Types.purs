@@ -1,10 +1,15 @@
-module Data.Medea.Parser.Types where
+module Data.Medea.Parser.Types 
+  ( MedeaParser
+  , MedeaParseErr(..)
+  )
+  where
 
 import MedeaPrelude
 import Text.Parsing.Parser (Parser)
 
 data MedeaParseErr 
   = IdentifierTooLong String 
+  | ExpectedReservedIdentifier String
   | LeadingZero String
   | ConflictingSpecRequirements
   | EmptyLengthArraySpec

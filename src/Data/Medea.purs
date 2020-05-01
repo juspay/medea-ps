@@ -20,7 +20,7 @@ import Data.Medea.Analysis (TypeNode (..), CompiledSchema(..), ArrayType(..))
 import Data.Medea.JSONType (JSONType, typeOf)
  --, loadSchemaFromFile, loadSchemaFromHandle)
 import Data.Medea.MedeaJSON (MJSON(..))
-import Data.Medea.Parser.Primitive (Identifier(..), startIdentifier)
+import Data.Medea.Parser.Primitive (Identifier(..), ReservedIdentifier(..), identFromReserved)
 import Data.Medea.Schema (Schema)
 import Data.Medea.ValidJSON (ValidJSONF(..), objectToHashMap)
 import Data.Natural (Natural, natToInt)
@@ -152,7 +152,7 @@ validate scm str
     Just v -> ValidatedJSON <$> go v
   where
     go v = runReaderT (evalStateT (checkTypes v) (Tuple initialSet Nothing)) scm
-    initialSet = (_ :| Set.empty) <<< CustomNode $ startIdentifier
+    initialSet = (_ :| Set.empty) <<< CustomNode <<< identFromReserved $ RStart
 
 validateFromFile :: forall m. MonadPlus m => MonadError ValidationError m => MonadAff m => Schema -> String -> m ValidatedJSON
 validateFromFile scm fp = do

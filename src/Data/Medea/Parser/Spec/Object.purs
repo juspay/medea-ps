@@ -1,7 +1,14 @@
-module Data.Medea.Parser.Spec.Object where
+module Data.Medea.Parser.Spec.Object 
+  ( Specification (..)
+  , parseSpecification
+  , mkSpec
+  , properties
+  , additionalAllowed
+  )
+  where
 
 import MedeaPrelude
-import Data.Medea.Parser.Primitive (parseLine, parseReservedChunk)
+import Data.Medea.Parser.Primitive (ReservedIdentifier(..), parseLine, parseReserved)
 import Data.Medea.Parser.Spec.Property as Property
 import Data.Medea.Parser.Types (MedeaParser)
 import Text.Parsing.Parser.Combinators (option, try)
@@ -27,9 +34,9 @@ mkSpec p aa = Specification { properties: p, additionalAllowed: aa }
 parseSpecification :: MedeaParser Specification
 parseSpecification 
   = do
-    _ <- parseLine 4 $ parseReservedChunk "properties"
+    _ <- parseLine 4 $ parseReserved RProperties
     mkSpec <$> parseProperties <*> parseAdditionalAllowed
   where
     parseProperties = many (try Property.parseSpecification)
-    parseAdditionalAllowed = option false $ try $ (parseLine 8 $ parseReservedChunk "additional-properties-allowed" $> true)
+    parseAdditionalAllowed = option false $ try $ (parseLine 8 $ parseReserved RAdditionalPropertiesAllowed $> true)
       

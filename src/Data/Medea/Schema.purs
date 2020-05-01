@@ -1,4 +1,7 @@
-module Data.Medea.Schema where
+module Data.Medea.Schema 
+  ( Schema(..)
+  )
+  where
 
 import MedeaPrelude
 import Data.Medea.Analysis (CompiledSchema)

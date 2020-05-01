@@ -3,7 +3,7 @@ module Data.Medea.Parser.Spec.Property
 
 import MedeaPrelude
 import Text.Parsing.Parser.Combinators (option, try)
-import Data.Medea.Parser.Primitive (Identifier, MedeaString, parseIdentifier, parseLine, parseReservedChunk, parseString, parseKeyVal)
+import Data.Medea.Parser.Primitive (Identifier, MedeaString, ReservedIdentifier(..), parseIdentifier, parseLine, parseReserved, parseString, parseKeyVal)
 import Data.Medea.Parser.Types (MedeaParser)
 
 data Specification 
@@ -19,18 +19,18 @@ instance showSpecification :: Show Specification where
   show x = genericShow x
 
 propName :: Specification -> MedeaString
-propName (Specification { propName }) = propName
+propName (Specification { propName: pn }) = pn
 
 propSchema :: Specification -> Maybe Identifier
-propSchema (Specification { propSchema }) = propSchema
+propSchema (Specification { propSchema: ps }) = ps
 
 propOptional :: Specification -> Boolean
-propOptional (Specification { propOptional }) = propOptional
+propOptional (Specification { propOptional: po }) = po
 
 derive instance eqSpecification :: Eq Specification
 
 mkSpec :: MedeaString -> Maybe Identifier -> Boolean -> Specification
-mkSpec propName propSchema propOptional = Specification {propName, propSchema, propOptional}
+mkSpec pn ps po = Specification {propName: pn, propSchema: ps, propOptional: po}
 
 parseSpecification :: MedeaParser Specification
 parseSpecification 
@@ -39,8 +39,8 @@ parseSpecification
     <*> parsePropSchema
     <*> parsePropOptional
   where
-    parsePropName = parseLine 8 $ parseKeyVal "property-name" parseString
+    parsePropName = parseLine 8 $ parseKeyVal RPropertyName parseString
     parsePropSchema = option Nothing <<< try <<< parseLine 8 $
-      Just <$> parseKeyVal "property-schema" parseIdentifier
+      Just <$> parseKeyVal RPropertySchema parseIdentifier
     parsePropOptional = option false <<< try <<< parseLine 8 $
-      parseReservedChunk "optional-property" $> true
+      parseReserved ROptionalProperty $> true

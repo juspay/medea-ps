@@ -1,4 +1,8 @@
-module Data.Medea.Parser.Spec.Schemata where
+module Data.Medea.Parser.Spec.Schemata 
+  ( Specification (..)
+  , parseSpecification
+  )
+  where
 
 import MedeaPrelude
 import Text.Parsing.Parser.Combinators (sepBy1)
