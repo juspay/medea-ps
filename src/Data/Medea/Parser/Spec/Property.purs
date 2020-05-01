@@ -13,6 +13,11 @@ data Specification
   , propOptional :: Boolean
   }
 
+derive instance genericSpecification :: Generic Specification _
+
+instance showSpecification :: Show Specification where
+  show x = genericShow x
+
 propName :: Specification -> MedeaString
 propName (Specification { propName }) = propName
 

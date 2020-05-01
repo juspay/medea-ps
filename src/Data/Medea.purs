@@ -34,7 +34,6 @@ import Foreign.Object as Object
 import Partial.Unsafe (unsafePartial)
 import Unsafe.Coerce (unsafeCoerce)
 
-
 -- | The schema-derived information attached to the current node.
 data SchemaInformation
   = AnySchema
@@ -167,16 +166,19 @@ checkTypes v = checkAny v <|> checkPrim v <|> checkCustoms v
 
 checkAny :: forall m. Alternative m => MonadState (Tuple (NonEmpty Set TypeNode) (Maybe Identifier)) m => MonadError ValidationError m => Json -> m (Cofree ValidJSONF SchemaInformation)
 checkAny v = do
-  minNode <- gets $ Set.findMin <<< (NonEmpty.fromNonEmpty Set.insert)<<< fst -- AnyNode is the smallest possible TypeNode
+  minNode <- gets $ Set.findMin <<< (NonEmpty.fromNonEmpty Set.insert) <<< fst -- AnyNode is the smallest possible TypeNode
   case minNode of
-    Just AnyNode -> pure $ AnySchema :< (AnythingF $ MJSON v)
-    _ -> throwError EmptyError
+    Just AnyNode -> do
+      pure $ AnySchema :< (AnythingF $ MJSON v)
+    _ -> do 
+      throwError EmptyError
 
 checkPrim :: forall  m.  Alternative m => MonadReader Schema m => MonadState (Tuple (NonEmpty Set TypeNode) (Maybe Identifier)) m => MonadError ValidationError m => Json -> m (Cofree ValidJSONF SchemaInformation)
 checkPrim v = do
   (Tuple neNodes par) <- gets identity
   let nodes = NonEmpty.fromNonEmpty (Set.insert) neNodes
-  unless (Set.member (PrimitiveNode <<< typeOf $ v) nodes) $ throwError $ NotOneOfOptions $ v
+  unless (Set.member (PrimitiveNode <<< typeOf $ v) nodes) $ do
+    throwError $ NotOneOfOptions $ v
   caseJson
     (\null -> pure $ NullSchema :< NullF)
     (\bool -> pure $ BooleanSchema :< BooleanF bool)
@@ -237,9 +239,11 @@ checkArray :: forall m. Alternative m => MonadReader Schema m => MonadState (Tup
 checkArray arr parIdent = do
   (CompiledSchema cs) <- lookupSchema parIdent
   let arrLen = length arr
+      outOfBounds = OutOfBoundsArrayLength (textify parIdent) <<< encodeJson $ arr 
   when (compareMaybe (<) arrLen cs.minListLen 
-     || compareMaybe (>) arrLen cs.maxListLen) $
-    throwError <<< OutOfBoundsArrayLength (textify parIdent) <<< encodeJson $ arr 
+     || compareMaybe (>) arrLen cs.maxListLen) $ do
+    throwError $ outOfBounds
+  maybe (pure unit) (checkTupleLength arr outOfBounds) cs.arrayTypes  
   let valsAndTypes = pairValsWithTypes $ cs.arrayTypes
   checkedArray <- traverse assess valsAndTypes
   pure $ ArraySchema :< ArrayF checkedArray
@@ -250,9 +254,15 @@ checkArray arr parIdent = do
     pairValsWithTypes Nothing = map (_ /\ AnyNode) arr
     pairValsWithTypes (Just (ListType node)) = map (_ /\ node) arr
     pairValsWithTypes (Just (TupleType nodes)) = zip arr nodes
-    compareMaybe :: (Int -> Int -> Boolean) -> Int -> Maybe Natural -> Boolean
-    compareMaybe f i mn = maybe false (\n -> f i $ natToInt n) mn
 
+compareMaybe :: (Int -> Int -> Boolean) -> Int -> Maybe Natural -> Boolean
+compareMaybe f i mn = maybe false (\n -> f i $ natToInt n) mn
+
+checkTupleLength :: forall m a e. MonadError e m => Array a -> e -> ArrayType -> m Unit
+checkTupleLength arr err (ListType _) = pure unit
+checkTupleLength arr err (TupleType nodes) 
+  = if length nodes == length arr then pure unit
+     else throwError $ err
 
 checkObject :: forall m. Alternative m => MonadReader Schema m => MonadState (Tuple (NonEmpty Set TypeNode) (Maybe Identifier)) m => MonadError ValidationError m => HashMap String Json -> Identifier -> m (Cofree ValidJSONF SchemaInformation)
 checkObject obj parIdent 
@@ -276,12 +286,14 @@ pairPropertySchemaAndVal obj properties extraAllowed parIdent
       pairProperty (Tuple propName j) 
         = case HM.lookup propName properties of
               Just (Tuple typeNode _) -> pure (Tuple j typeNode)
-              Nothing | extraAllowed -> pure (Tuple j AnyNode)
-                  | otherwise -> throwError $ AdditionalPropFoundButBanned (textify parIdent) $ propName
+              Nothing | extraAllowed -> do
+                        pure (Tuple j AnyNode)
+                      | otherwise -> do
+                        throwError $ AdditionalPropFoundButBanned (textify parIdent) $ propName
       isMatched :: String /\ TypeNode /\ Boolean -> m Unit
-      isMatched (propName /\ _ /\ optional) = when 
-            (isNothing (HM.lookup propName obj) && not optional) $ 
-              throwError <<< RequiredPropertyIsMissing (textify parIdent) $ propName
+      isMatched (propName /\ _ /\ optional) = do
+        when (isNothing (HM.lookup propName obj) && not optional) $  do
+          throwError <<< RequiredPropertyIsMissing (textify parIdent) $ propName
 
 -- checkCustoms removes all nonCustom nodes from the typenode set and 
 -- checks the value against each until one succeeds

@@ -17,7 +17,7 @@ data Specification = Specification
   , types :: Type.Specification
   , stringVals :: String.Specification
   , array :: Array.Specification
-  , object :: Maybe (Object.Specification)
+  , object :: Maybe Object.Specification
   }
 
 name :: Specification -> Identifier

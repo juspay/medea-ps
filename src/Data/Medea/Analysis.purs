@@ -21,6 +21,7 @@ import Data.Set as Set
 import Data.Map as Map
 import Unsafe.Coerce (unsafeCoerce)
 
+
 data AnalysisError
   = DuplicateSchemaName Identifier
   | NoStartSchema
@@ -107,7 +108,7 @@ compileSchema scm@(Schema.Specification { name: schemaName,  types: (Type.Specif
       $ throwError $ ReservedDefined $ schemaName
     let minListLen = arraySpec.minLength
         maxListLen = arraySpec.maxLength
-    when (minListLen > maxListLen)
+    when (minListLen > maxListLen && (not $ isNothing maxListLen))
       $ throwError $ MinMoreThanMax schemaName
     propMap <- foldM go HM.empty (maybe [] properties objSpec)
     let arrType = getArrayTypes (arraySpec.elementType) (arraySpec.tupleSpec)
@@ -117,7 +118,7 @@ compileSchema scm@(Schema.Specification { name: schemaName,  types: (Type.Specif
           { schemaNode: identToNode <<< Just $ schemaName
           , typesAs: defaultToAny <<< map (identToNode <<< Just) $ types
           , minListLen: minListLen <|> tupleLen
-          , maxListLen: minListLen <|> maxListLen
+          , maxListLen: maxListLen <|> tupleLen
           , arrayTypes: arrType
           , props: propMap
           , additionalProps: maybe true additionalAllowed objSpec

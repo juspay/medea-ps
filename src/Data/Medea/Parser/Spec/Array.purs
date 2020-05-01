@@ -47,7 +47,9 @@ parseSpecification = do
        Specification { elementType: (Just _), tupleSpec: (Just _) } -> fail $ show ConflictingSpecRequirements
        Specification { minLength: (Just _), tupleSpec: (Just _) } -> fail $ show ConflictingSpecRequirements
        Specification { maxLength: (Just _), tupleSpec: (Just _) } -> fail $ show EmptyLengthArraySpec
-       _ -> pure spec
+       _ -> do
+         pure spec
+
   where 
     permute = runPermutation $ mkSpec
       <$> toPermutationWithDefault Nothing (try parseMinSpec)

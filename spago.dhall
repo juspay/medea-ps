@@ -15,6 +15,7 @@ You can edit this file as you like.
   , "foreign-object"
   , "free"
   , "generics-rep"
+  , "lcg"
   , "leibniz"
   , "mote"
   , "naturals"

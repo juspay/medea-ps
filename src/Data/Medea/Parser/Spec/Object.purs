@@ -31,5 +31,5 @@ parseSpecification
     mkSpec <$> parseProperties <*> parseAdditionalAllowed
   where
     parseProperties = many (try Property.parseSpecification)
-    parseAdditionalAllowed = option false <<< try <<< parseLine 8 $
-      parseReservedChunk "additional-properties-allowed" $> true
+    parseAdditionalAllowed = option false $ try $ (parseLine 8 $ parseReservedChunk "additional-properties-allowed" $> true)
+      

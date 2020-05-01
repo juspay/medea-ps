@@ -8,7 +8,6 @@ import Data.Argonaut (Json)
 import Data.Argonaut as Arg
 import Data.Array as Array
 import Data.List.Lazy as List
-import Data.NonEmpty ((:|))
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Reader.Trans (ReaderT, runReaderT, asks, local)
 import Foreign.Object as Obj
@@ -23,6 +22,9 @@ derive instance newtypeRandomJson :: Newtype RandomJson _
 
 instance arbitraryRandomJson :: Arbitrary RandomJson where
   arbitrary = RandomJson <$> runReaderT makeRandomJson 5 --- recursionDepth
+
+genJson :: Gen Json
+genJson = unwrap <$> (arbitrary :: Gen RandomJson)
 
 toJson :: RandomJson -> Json
 toJson = unwrap
@@ -64,14 +66,31 @@ makeRandomJson = do
   choice <- lift $ Gen.chooseInt 0 (if reachedMaxDepth then 3 else 5)
   case choice of
     0 -> pure Arg.jsonNull
-    1 -> lift $ Gen.elements $ Arg.jsonTrue :| [Arg.jsonFalse]
+    1 -> lift $ Arg.encodeJson <$> (arbitrary :: Gen Boolean)
     2 -> lift $ Arg.encodeJson <$> (arbitrary :: Gen Int)
     3 -> lift $ Arg.encodeJson <$> (arbitrary :: Gen String)
-    4 -> do
-      len <- lift $ Gen.chooseInt 0 5
-      list <- List.replicateM len (local dec makeRandomJson)
-      pure $ Arg.encodeJson $ Array.fromFoldable list
+    4 -> Arg.encodeJson <$> makeRandomArray 0 5
     _ -> makeRandomObject (ObjGenOpts [] [] 0 5)
 
 dec :: Int -> Int
 dec n = sub 1 n
+
+newtype RandomJsonArray = RandomJsonArray (Array Json)
+
+instance arbitraryRandomJsonArray :: Arbitrary RandomJsonArray where
+  arbitrary = arbitraryJsonArray 0 5
+
+arbitraryJsonArray :: Int -> Int -> Gen RandomJsonArray
+arbitraryJsonArray r1 r2 = RandomJsonArray <$> runReaderT (makeRandomArray r1 r2) 2
+
+genArrayJson :: Gen (Array Json)
+genArrayJson = runReaderT (makeRandomArray 0 5) 2
+
+makeRandomArray :: Int -> Int -> ReaderT Int Gen (Array Json)
+makeRandomArray r1 r2 = do
+  len <- lift $ Gen.chooseInt r1 r2
+  list <- List.replicateM len (local dec makeRandomJson)
+  pure $ Array.fromFoldable list
+
+
+
