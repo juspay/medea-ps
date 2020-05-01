@@ -40,6 +40,6 @@ interpret spif
 
 testPlan :: TestPlanM Unit
 testPlan = do
-  {-- ParseTest.suite --}
-  {-- SchemaBuilder.suite --}
+  ParseTest.suite
+  SchemaBuilder.suite
   Validator.suite
