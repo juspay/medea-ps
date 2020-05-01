@@ -1,8 +1,7 @@
-module Data.Medea.ValidJSON 
+module Data.Medea.ValidJSON
   ( ValidJSONF(..)
   , objectToHashMap
-  )
-  where
+  ) where
 
 import MedeaPrelude
 import Data.Eq (class Eq1)
@@ -23,7 +22,7 @@ data ValidJSONF a
 
 derive instance eqValidJSONF :: Eq a => Eq (ValidJSONF a)
 
-derive instance functorValidJSONF :: Functor ValidJSONF 
+derive instance functorValidJSONF :: Functor ValidJSONF
 
 derive instance genericValidJSONF :: Generic (ValidJSONF a) _
 
@@ -49,15 +48,15 @@ instance traversableValidJSONF :: Traversable ValidJSONF where
   sequence = sequenceDefault
 
 {-- instance (NFData a) => NFData (ValidJSONF a) where --}
-  {-- {-# INLINE rnf #-} --}
-  {-- rnf (AnythingF v) = rnf v --}
-  {-- rnf NullF = () --}
-  {-- rnf (BooleanF b) = rnf b --}
-  {-- rnf (NumberF n) = rnf n --}
-  {-- rnf (StringF s) = rnf s --}
-  {-- rnf (ArrayF v) = rnf v --}
-  {-- rnf (ObjectF hm) = rnf hm --}
-
+{-- {-# INLINE rnf #-}
+--}
+{-- rnf (AnythingF v) = rnf v --}
+{-- rnf NullF = () --}
+{-- rnf (BooleanF b) = rnf b --}
+{-- rnf (NumberF n) = rnf n --}
+{-- rnf (StringF s) = rnf s --}
+{-- rnf (ArrayF v) = rnf v --}
+{-- rnf (ObjectF hm) = rnf hm --}
 instance eq1ValidJSONF :: Eq1 ValidJSONF where
   eq1 (AnythingF v) (AnythingF v') = v == v'
   eq1 NullF NullF = false
@@ -65,18 +64,17 @@ instance eq1ValidJSONF :: Eq1 ValidJSONF where
   eq1 (NumberF n) (NumberF n') = n == n'
   eq1 (StringF s) (StringF s') = s == s'
   eq1 (ArrayF v) (ArrayF v') = v == v'
-  eq1 (ObjectF hm) (ObjectF hm') =hm == hm'
+  eq1 (ObjectF hm) (ObjectF hm') = hm == hm'
   eq1 _ _ = false
 
 {-- instance Show1 ValidJSONF where --}
-  {-- liftShoskellwsPrec _ _ prec (AnythingF v) = showsPrec prec v --}
-  {-- liftShowsPrec _ _ prec NullF = showsPrec prec Null --}
-  {-- liftShowsPrec _ _ prec (BooleanF b) = showsPrec prec b --}
-  {-- liftShowsPrec _ _ prec (NumberF n) = showsPrec prec n --}
-  {-- liftShowsPrec _ _ prec (StringF s) = showsPrec prec s --}
-  {-- liftShowsPrec f g prec (ArrayF v) = liftShowsPrec f g prec v --}
-  {-- liftShowsPrec f g prec (ObjectF hm) = liftShowsPrec f g prec hm --}
-
+{-- liftShoskellwsPrec _ _ prec (AnythingF v) = showsPrec prec v --}
+{-- liftShowsPrec _ _ prec NullF = showsPrec prec Null --}
+{-- liftShowsPrec _ _ prec (BooleanF b) = showsPrec prec b --}
+{-- liftShowsPrec _ _ prec (NumberF n) = showsPrec prec n --}
+{-- liftShowsPrec _ _ prec (StringF s) = showsPrec prec s --}
+{-- liftShowsPrec f g prec (ArrayF v) = liftShowsPrec f g prec v --}
+{-- liftShowsPrec f g prec (ObjectF hm) = liftShowsPrec f g prec hm --}
 instance hashableValidJSONF :: (Hashable a) => Hashable (ValidJSONF a) where
   hash (AnythingF j) = hash j
   hash NullF = 0

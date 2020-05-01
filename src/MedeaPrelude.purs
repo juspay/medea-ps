@@ -1,4 +1,4 @@
-module MedeaPrelude 
+module MedeaPrelude
   ( module Prelude
   , module Aff
   , module Array
@@ -19,8 +19,7 @@ module MedeaPrelude
   , module Traversable
   , module Tuple
   , module Undefined
-  )
-  where
+  ) where
 
 import Prelude
 import Control.MonadZero (guard) as MonadZero

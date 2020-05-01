@@ -5,18 +5,20 @@ import Control.Monad.Trans.Class (lift)
 import Data.Medea.Loader (loadSchemaFromFile)
 import Test.Spec.Assertions (shouldSatisfy)
 import TestM (TestPlanM, isSchemaError, runTestM, listMedeaFiles, appendPath)
-
 import Mote (group, test)
 
 suite :: TestPlanM Unit
 suite = do
-  let prefix = "./conformance/schema-builder"
+  let
+    prefix = "./conformance/schema-builder"
   testFilesPass <- lift $ listMedeaFiles (appendPath prefix "/pass")
   testFilesFail <- lift $ listMedeaFiles (appendPath prefix "/fail")
-  group "invalid schemata cases" $ do
-    traverse_ makeFailTest $ testFilesFail
-  group "Valid schemata cases" $ do
-    traverse_ makePassTest $ testFilesPass
+  group "invalid schemata cases"
+    $ do
+        traverse_ makeFailTest $ testFilesFail
+  group "Valid schemata cases"
+    $ do
+        traverse_ makePassTest $ testFilesPass
 
 makeFailTest :: String -> TestPlanM Unit
 makeFailTest fp = do

@@ -1,13 +1,12 @@
-module Data.Medea.Schema 
+module Data.Medea.Schema
   ( Schema(..)
-  )
-  where
+  ) where
 
 import MedeaPrelude
 import Data.Medea.Analysis (CompiledSchema)
 import Data.Medea.Parser.Primitive (Identifier)
 
-newtype Schema 
+newtype Schema
   = Schema (Map Identifier CompiledSchema)
 
 derive instance genericSchema :: Generic Schema _

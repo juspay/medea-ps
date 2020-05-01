@@ -13,15 +13,16 @@ import Data.Set as Set
 import Partial.Unsafe (unsafePartial)
 import Unsafe.Coerce (unsafeCoerce)
 
-newtype AcyclicAdjacencyMap a = AAM (AdjacencyMap a)
+newtype AcyclicAdjacencyMap a
+  = AAM (AdjacencyMap a)
 
 derive newtype instance showAcyclicAdjacencyMap :: Show a => Show (AcyclicAdjacencyMap a)
 
-data AcyclicError = CycleError | DFSOrderViolation
-
+data AcyclicError
+  = CycleError
+  | DFSOrderViolation
 
 -- TODO : instance (Ord a, Show a) => Show (AcyclicAdjacencyMap a)
-
 empty :: forall a. AcyclicAdjacencyMap a
 empty = unsafeCoerce AdjMap.empty
 
@@ -75,7 +76,7 @@ preSet :: forall a. Ord a => a -> AcyclicAdjacencyMap a -> Set a
 preSet a aama = AdjMap.preSet a $ unsafeCoerce aama
 
 postSet :: forall a. Ord a => a -> AcyclicAdjacencyMap a -> Set a
-postSet a aama = AdjMap.postSet a $ unsafeCoerce aama 
+postSet a aama = AdjMap.postSet a $ unsafeCoerce aama
 
 removeVertex :: forall a. Ord a => a -> AcyclicAdjacencyMap a -> AcyclicAdjacencyMap a
 removeVertex a aama = AAM $ AdjMap.removeVertex a $ unsafeCoerce aama
@@ -98,10 +99,12 @@ box a b = AAM $ AdjMap.box (unsafeCoerce a) (unsafeCoerce b)
 transitiveClosure :: forall a. Ord a => AcyclicAdjacencyMap a -> AcyclicAdjacencyMap a
 transitiveClosure a = AAM $ AdjMap.transitiveClosure $ unsafeCoerce a
 
-data NodeState = Entered | Exited
+data NodeState
+  = Entered
+  | Exited
 
-type TSS a 
-  = { parent :: Map a a 
+type TSS a
+  = { parent :: Map a a
     , entry :: Map a NodeState
     , order :: Array a
     }
@@ -123,42 +126,53 @@ compare' a b = case compare a b of
   LT -> GT
 
 -- we point to the cycle head because the cycle array approach used in haskell creates an infinite type 
-data CycleHead a = CycleHead (Map a a)
+data CycleHead a
+  = CycleHead (Map a a)
 
-topSort' :: forall a m. Ord a => Partial => MonadState (TSS a) m => MonadCont m => AdjacencyMap a  -> m (Either (CycleHead a) (Array a))
-topSort' g = callCC $ 
-  \cyclic -> do
-    let 
-      vertices' = map fst $ mapToDescendingArray $ unwrap g
-      adjacent = setToDescendingArray <<< flip AdjMap.postSet g
-      -- in haskell, dfsRoot and dfs `return ()` on the just cases where we pure empty TSS here. there may be implications if this is used for more than cycle detection
-      dfsRoot x = nodeState x >>= case _ of
-          Nothing -> enterRoot x *> dfs x *> exit x
-          _       -> pure emptyTSS
-      dfs x = for_ (adjacent x) $ \y ->
-          nodeState y >>= case _ of
-            Nothing -> enter x y *> dfs y *> exit y
-            Just Exited -> pure emptyTSS
-            Just Entered -> cyclic <<< Left <<< CycleHead =<< gets _.parent
-    for_ vertices' dfsRoot
-    Right <$> gets _.order
+topSort' :: forall a m. Ord a => Partial => MonadState (TSS a) m => MonadCont m => AdjacencyMap a -> m (Either (CycleHead a) (Array a))
+topSort' g =
+  callCC
+    $ \cyclic -> do
+        let
+          vertices' = map fst $ mapToDescendingArray $ unwrap g
+
+          adjacent = setToDescendingArray <<< flip AdjMap.postSet g
+
+          -- in haskell, dfsRoot and dfs `return ()` on the just cases where we pure empty TSS here. there may be implications if this is used for more than cycle detection
+          dfsRoot x =
+            nodeState x
+              >>= case _ of
+                  Nothing -> enterRoot x *> dfs x *> exit x
+                  _ -> pure emptyTSS
+
+          dfs x =
+            for_ (adjacent x)
+              $ \y ->
+                  nodeState y
+                    >>= case _ of
+                        Nothing -> enter x y *> dfs y *> exit y
+                        Just Exited -> pure emptyTSS
+                        Just Entered -> cyclic <<< Left <<< CycleHead =<< gets _.parent
+        for_ vertices' dfsRoot
+        Right <$> gets _.order
   where
-    nodeState v = gets (Map.lookup v <<< _.entry)
-    enter u v = modify (\({ parent, entry, order }) -> { parent: Map.insert v u parent, entry: Map.insert v Entered entry, order })
-    enterRoot v = modify (\({ parent, entry, order }) -> {parent, entry: Map.insert v Entered entry, order})
-    exit v = modify (\({ parent, entry, order }) -> { parent, entry: Map.alter (map leave) v entry, order: cons v order })
-    leave = case _ of
-        Entered -> Exited
-        Exited -> unsafeThrow "Internal error: dfs search order violated"
+  nodeState v = gets (Map.lookup v <<< _.entry)
+
+  enter u v = modify (\({ parent, entry, order }) -> { parent: Map.insert v u parent, entry: Map.insert v Entered entry, order })
+
+  enterRoot v = modify (\({ parent, entry, order }) -> { parent, entry: Map.insert v Entered entry, order })
+
+  exit v = modify (\({ parent, entry, order }) -> { parent, entry: Map.alter (map leave) v entry, order: cons v order })
+
+  leave = case _ of
+    Entered -> Exited
+    Exited -> unsafeThrow "Internal error: dfs search order violated"
 
 topSort :: forall a. Ord a => AdjacencyMap a -> Either (CycleHead a) (Array a)
-topSort g = unsafePartial $ runContT (evalStateT (topSort' g) emptyTSS) identity 
-
+topSort g = unsafePartial $ runContT (evalStateT (topSort' g) emptyTSS) identity
 
 isAcyclic :: forall a. Ord a => AdjacencyMap a -> Boolean
 isAcyclic = isRight <<< topSort
 
 toAcyclic :: forall a. Ord a => AdjacencyMap a -> Maybe (AcyclicAdjacencyMap a)
 toAcyclic x = if isAcyclic x then Just (AAM x) else Nothing
-
-

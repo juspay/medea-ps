@@ -1,16 +1,16 @@
-module Data.Medea.Parser.Spec.Type 
-  ( Specification (..)
+module Data.Medea.Parser.Spec.Type
+  ( Specification(..)
   , defaultSpec
   , parseSpecification
-  )
-  where
+  ) where
 
 import MedeaPrelude
 import Text.Parsing.Parser.Combinators (try)
 import Data.Medea.Parser.Primitive (Identifier, ReservedIdentifier(..), parseLine, parseReserved, parseIdentifier)
 import Data.Medea.Parser.Types (MedeaParser)
 
-newtype Specification = Specification (Array Identifier)
+newtype Specification
+  = Specification (Array Identifier)
 
 derive instance eqSpecification :: Eq Specification
 
@@ -19,11 +19,10 @@ derive instance newtypeSpecification :: Newtype Specification _
 defaultSpec :: Specification
 defaultSpec = Specification []
 
-
 getReferences :: Specification -> Array Identifier
 getReferences = unwrap
 
-parseSpecification :: MedeaParser Specification 
+parseSpecification :: MedeaParser Specification
 parseSpecification = do
   _ <- parseLine 4 $ parseReserved RType
   types <- some <<< try $ parseLine 8 parseIdentifier

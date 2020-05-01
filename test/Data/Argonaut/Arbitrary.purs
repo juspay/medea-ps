@@ -1,13 +1,12 @@
-module Data.Argonaut.Arbitrary 
+module Data.Argonaut.Arbitrary
   ( RandomJson(..)
-  , RandomJsonArray (..)
-  , ObjGenOpts (..)
+  , RandomJsonArray(..)
+  , ObjGenOpts(..)
   , arbitraryObj
   , genJson
   , genArrayJson
   , arbitraryJsonArray
-  )
-  where
+  ) where
 
 import MedeaPrelude
 import Test.QuickCheck (class Arbitrary, arbitrary)
@@ -21,8 +20,8 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.Reader.Trans (ReaderT, runReaderT, asks, local)
 import Foreign.Object as Obj
 
-
-newtype RandomJson = RandomJson Json
+newtype RandomJson
+  = RandomJson Json
 
 instance showJson :: Show RandomJson where
   show x = Arg.stringify <<< unwrap $ x
@@ -39,7 +38,6 @@ toJson :: RandomJson -> Json
 toJson = unwrap
 
 -- the haskell implementation of this module includes a number of helper predicates available directly from argonaut
-
 number :: Int -> Int
 number = identity
 
@@ -54,8 +52,8 @@ array = identity
 -- optional properties,
 -- minimum additional properties &
 -- maximum additional properties.
-
-data ObjGenOpts = ObjGenOpts (Array String) (Array String) Int Int
+data ObjGenOpts
+  = ObjGenOpts (Array String) (Array String) Int Int
 
 arbitraryObj :: ObjGenOpts -> Gen Json
 arbitraryObj opts = runReaderT (makeRandomObject opts) 2
@@ -65,7 +63,8 @@ makeRandomObject (ObjGenOpts props optionalProps minAdditional maxAdditional) = 
   entryCount <- lift $ Gen.chooseInt minAdditional maxAdditional
   genKeys <- List.replicateM entryCount $ lift arbitrary
   someOptionalProps <- List.filterM (\_ -> lift arbitrary) (List.fromFoldable optionalProps)
-  let keys = genKeys <> List.fromFoldable props <> someOptionalProps
+  let
+    keys = genKeys <> List.fromFoldable props <> someOptionalProps
   keyVals <- traverse (\x -> (Tuple x) <$> local dec makeRandomJson) keys
   pure $ Arg.encodeJson $ Obj.fromFoldable $ keyVals
 
@@ -84,7 +83,8 @@ makeRandomJson = do
 dec :: Int -> Int
 dec n = sub 1 n
 
-newtype RandomJsonArray = RandomJsonArray (Array Json)
+newtype RandomJsonArray
+  = RandomJsonArray (Array Json)
 
 instance arbitraryRandomJsonArray :: Arbitrary RandomJsonArray where
   arbitrary = arbitraryJsonArray 0 5
@@ -100,6 +100,3 @@ makeRandomArray r1 r2 = do
   len <- lift $ Gen.chooseInt r1 r2
   list <- List.replicateM len (local dec makeRandomJson)
   pure $ Array.fromFoldable list
-
-
-
