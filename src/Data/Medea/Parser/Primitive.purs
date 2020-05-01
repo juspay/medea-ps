@@ -89,7 +89,7 @@ fromReserved RStart = "$start"
 
 fromReserved RType = "$type"
 
-fromReserved RStringValues = "$string_values"
+fromReserved RStringValues = "$string-values"
 
 fromReserved RProperties = "$properties"
 
@@ -101,11 +101,11 @@ fromReserved RAdditionalPropertiesAllowed = "$additional-properties-allowed"
 
 fromReserved ROptionalProperty = "$optional-property"
 
-fromReserved RMinLength = "$min_length"
+fromReserved RMinLength = "$min-length"
 
-fromReserved RMaxLength = "$max_length"
+fromReserved RMaxLength = "$max-length"
 
-fromReserved RElementType = "$element_type"
+fromReserved RElementType = "$element-type"
 
 fromReserved RTuple = "$tuple"
 
@@ -139,7 +139,7 @@ tryReserved "$start" = Just RStart
 
 tryReserved "$type" = Just RType
 
-tryReserved "$string_values" = Just RStringValues
+tryReserved "$string-values" = Just RStringValues
 
 tryReserved "$properties" = Just RProperties
 
@@ -151,11 +151,11 @@ tryReserved "$additional-properties-allowed" = Just RAdditionalPropertiesAllowed
 
 tryReserved "$optional-property" = Just ROptionalProperty
 
-tryReserved "$min_length" = Just RMinLength
+tryReserved "$min-length" = Just RMinLength
 
-tryReserved "$max_length" = Just RMaxLength
+tryReserved "$max-length" = Just RMaxLength
 
-tryReserved "$element_type" = Just RElementType
+tryReserved "$element-type" = Just RElementType
 
 tryReserved "$tuple" = Just RTuple
 
