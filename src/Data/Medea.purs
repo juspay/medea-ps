@@ -107,11 +107,11 @@ validAgainst (ValidatedJSON cof) = extract cof
 
 data ValidationError
   = EmptyError
-   -- | We could not parse JSON out of what we were provided.
+  -- | We could not parse JSON out of what we were provided.
   | NotJSON
-   -- | We got a type different to what we expected. 
+  -- | We got a type different to what we expected. 
   | WrongType Json JSONType
-   -- | We expected one of several possibilities, but got something that fits -- none.
+  -- | We expected one of several possibilities, but got something that fits -- none.
   | NotOneOfOptions Json
   | AdditionalPropFoundButBanned String String
   | RequiredPropertyIsMissing String String
