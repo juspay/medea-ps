@@ -78,7 +78,6 @@ derive instance genericArrayType :: Generic ArrayType _
 instance showArrayType :: Show ArrayType where
   show x = genericShow x
 
-
 checkAcyclic :: forall m. MonadError AnalysisError m => Map Identifier CompiledSchema -> m Unit
 checkAcyclic m = when (isNothing <<< Acyclic.toAcyclic <<< getTypesAsGraph $ m) 
   $ throwError TypeRelationIsCyclic

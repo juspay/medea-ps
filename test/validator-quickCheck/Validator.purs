@@ -342,7 +342,7 @@ testSingular fp name p = testWrap name fp
 
 testStringVals :: String -> NonEmpty Array String -> TestPlanM Unit
 testStringVals fp validStrings = 
-  let name = "strings in" <> show validStrings in
+  let name = "string is one of " <> show validStrings in
   testWrap' name fp
     (\scm -> do
     test ("Should Validate " <> name <> fp) (propertyTest $ validationSuccess genString p scm)

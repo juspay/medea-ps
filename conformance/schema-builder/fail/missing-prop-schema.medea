@@ -1,6 +1,10 @@
 $schema $start
     $type
+<<<<<<< HEAD
         $boolean
+=======
+        $object
+>>>>>>> 7374e232ae22e0d9e56c3ae7979d4b2e31ed68da
     $properties
         $property-name "foo"
         $property-schema bar
