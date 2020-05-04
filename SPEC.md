@@ -180,10 +180,9 @@ situations.
 meant to serve as a list; that is, a homogenously-typed collection of varying
 length.
 
-**Preconditions:** The schema must have a type specifier by which a JSON array
-would be considered valid. Additionally, the schema must not contain a tuple
-specification, nor have a type specifier whose schema contains a tuple
-specification, either directly or transitively (via its own type specifier). 
+**Preconditions:** If the schema has a type specification, said type
+specification must contain the type specifier line ``$array``. Additionally, the
+schema must not contain a tuple specification. 
 
 **Syntax:** A list specification MUST consist of one, or both, of the following, in any order: 
 
@@ -198,7 +197,7 @@ A length specification MUST consist of one, or both, of the following, in any or
 An element schema specification MUST consist of the following, in this order:
 
 1) Four space symbols;
-2) The reserved identifier ``$element_type``;
+2) The reserved identifier ``$element-type``;
 3) A space symbol;
 4) _Either_ a Medea identifier, or one of ``$null``, ``$boolean``, ``$object``,
    ``$array``, ``$number``, ``$string``; and
@@ -207,7 +206,7 @@ An element schema specification MUST consist of the following, in this order:
 A minimum length specification MUST consist of the following, in this order:
 
 1) Four space symbols;
-2) The reserved identifier ``$min_length``;
+2) The reserved identifier ``$min-length``;
 3) A single space symbol;
 4) A Medea natural number; and
 5) A newline.
@@ -215,7 +214,7 @@ A minimum length specification MUST consist of the following, in this order:
 A maximum length specification MUST consist of the following, in this order:
 
 1) Four space symbols;
-2) The reserved identifier ``$max_length``;
+2) The reserved identifier ``$max-length``;
 3) A single space symbol;
 4) A Medea natural number; and
 5) A newline.
@@ -238,7 +237,11 @@ JSON array. Additionally:
 * If a maximum length specification is provided, the array must _not_ have more
   elements than the value of the Medea natural number in said specification.
 
-**Postconditions:** If both a minimum length specification and a maximum length
+**Postconditions:** A Medea validatory MUST indicate a unique error condition if
+the identifier in an element schema specification does not correspond to any
+schema defined in the current schema file. 
+
+If both a minimum length specification and a maximum length
 specification are provided, a Medea validator MUST indicate a unique error
 condition if the value of the Medea natural number in the minimum length
 specification is greater than the value of the Medea natural number in the
@@ -253,8 +256,8 @@ elements may be any JSON value.
 properties for an object, what schemata they must validate against, whether the
 property is optional or required, and whether additional properties are allowed. 
 
-**Preconditions:** The schema must have a type specifier by which a JSON object
-would be considered valid.
+**Preconditions:** If the schema has a type specification, said type
+specification must contain the type specifier line ``$object``.
 
 **Syntax:** An object property specification MUST consist of the following, in
 this order:
@@ -263,7 +266,7 @@ this order:
 2) The reserved identifier ``$properties``;
 3) A newline;
 4) Zero or more _object property specifier sections_; and
-5) An optional _additional property permission_.
+5) An optional _additional property declaration_.
 
 Each object property specifier section MUST consist of the following, in this
 order:
@@ -295,11 +298,21 @@ An optional property declaration MUST consist of the following, in this order:
 2) The reserved identifier ``$optional-property``; and
 3) A newline.
 
-An additional property permission MUST consist of the following, in this order:
+An additional property declaration MUST consist of the following, in this order:
 
 1) Eight space symbols;
-2) The reserved identifier ``$additional-properties-allowed``; and
-3) A newline.
+2) The reserved identifier ``$additional-properties-allowed``;
+3) A newline;
+4) An optional _additional property schema line_.
+
+An additional property schema line MUST consist of the following, in this order:
+
+1) Eight space symbols;
+1) The reserved identifier ``$additional-property-schema``;
+2) A single space symbol;
+3) _Either_ a Medea identifer, or one of ``$null``, ``$boolean``, ``$object``,
+  ``$array``, ``$number``, ``$string``; and
+4) A newline.
 
 **Semantics:** A JSON value is considered valid by this specifier if it a JSON
 object, and for each of its object property specifier sections, the following
@@ -313,12 +326,16 @@ all hold:
 * If a corresponding optional property declaration is _not_ provided, said 
   property is defined (that is, is not ``undefined``).
 
-Furthermore, if the additional property permission is _absent_, no property is defined
+Furthermore, if the additional property declaration is _absent_, no property is defined
 for the object _other_ than those given by some object property specifier
-section. 
+section. If the additional property declaration is present, any value of any
+property _other_ than those given by some object property specifier section must
+be valid by the schema named in the identifier given in its additional property
+schema line (if present).
 
-A property value is always valid by no property schema line. Otherwise, these 
-validation rules apply, based on the naming identifier:
+A property value is always valid by no property schema line or no additional
+property schema line. Otherwise, these validation rules apply, based on the 
+naming identifier:
  
 * ``$null``: The property value is `null`.
 * ``$boolean``: The property value is a JSON boolean.
@@ -330,8 +347,8 @@ validation rules apply, based on the naming identifier:
   named by this identifier. 
 
 **Postconditions:** A Medea validator MUST indicate a unique error condition if
-an identifier in a property schema line does not correspond to any schema 
-defined in the current schema file.
+an identifier in a property schema line or an additional property schema line 
+does not correspond to any schema defined in the current schema file.
 
 If multiple object property specifier sections have a property name line naming
 the same schema, a Medea validator MUST indicate a unique error condition.
@@ -344,19 +361,23 @@ information (that is, no object property specifier sections and no additional
 property permission), a JSON object is only considered valid if it is empty
 (that is, it defines no properties at all). 
 
+If an object property specifier contains a property name line, but no property
+schema line, then, provided that the named property is defined, any value for
+said property is considered valid. 
+
 #### String value specification
 
 **Description:** A _string value specification_ describes which values a JSON string
 is allowed to have.
 
-**Preconditions:** The schema must have a type specifier by which a JSON string
-would be considered valid.
+**Preconditions:** If the schema has a type specification, said type
+specification must contain the type specifier line ``$string``. 
 
 **Syntax:** A string value specification MUST consist of the following, in this
 order:
 
 1) Four space symbols;
-2) The reserved identifier ``$string_values``;
+2) The reserved identifier ``$string-values``;
 3) A newline;
 4) One or more _string value lines_; and
 
@@ -382,10 +403,9 @@ specifier are the same.
 meant to serve as a tuple; that is, a heterogenously-typed collection of fixed
 length.
 
-**Preconditions:** The schema must have a type specifier by which a JSON array
-would be considered valid. Additionally, the schema must not contain a list
-specification, nor have a type specifier whose schema contains a list
-specification, either directly or transitively (via its own type specifier). 
+**Preconditions:** If the schema has a type specification, said type
+specification must contain the type specifier line ``$array``. Additionally, the
+schema must not contain a list specification.
 
 **Syntax:** A tuple specification MUST consist of the following, in this order:
 
@@ -419,7 +439,9 @@ on the Medea identifier used in _p(i)_:
 
 Lastly, the array must have a length of _exactly_ _N_.
 
-**Postconditions:** None. 
+**Postconditions:** A Medea validator MUST indicate a unique error condition if
+an identifier in a positional schema specification does not correspond to any
+schema defined in the curent schema file.
 
 **Default:** An array may have any length, and its elements may be any JSON
 value.
