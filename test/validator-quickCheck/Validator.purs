@@ -84,36 +84,42 @@ suite = do
         { objTestOpts: ObjGenOpts [ "foo" ] [] 0 0
         , objTestPath: "1-property-no-additional-1.medea"
         , objTestPred: hasProperty "foo" Arg.isBoolean
+        , objAdditionalPred: const false
         }
   testObject
     $ ObjTestParams
         { objTestOpts: ObjGenOpts [ "foo" ] [] 0 0
         , objTestPath: "1-property-no-additional-2.medea"
         , objTestPred: hasProperty "foo" Arg.isNull
+        , objAdditionalPred: const false
         }
   testObject
     $ ObjTestParams
         { objTestOpts: ObjGenOpts [ "foo" ] [] 0 0
         , objTestPath: "1-property-no-additional-3.medea"
         , objTestPred: hasProperty "foo" Arg.isArray
+        , objAdditionalPred: const false
         }
   testInvalidObject
     $ ObjTestParams
         { objTestOpts: ObjGenOpts [ "foo" ] [] 1 3
         , objTestPath: "1-property-no-additional-1.medea"
         , objTestPred: const true
+        , objAdditionalPred: const false
         }
   testInvalidObject
     $ ObjTestParams
         { objTestOpts: ObjGenOpts [ "foo" ] [] 1 3
         , objTestPath: "1-property-no-additional-2.medea"
         , objTestPred: const true
+        , objAdditionalPred: const false
         }
   testInvalidObject
     $ ObjTestParams
         { objTestOpts: ObjGenOpts [] [ "foo" ] 1 3
         , objTestPath: "1-property-no-additional-3.medea"
         , objTestPred: const true
+        , objAdditionalPred: const false
         }
   -- Object schema with 1 property and additional allowed
   testObject
@@ -121,18 +127,21 @@ suite = do
         { objTestOpts: ObjGenOpts [ "foo" ] [] 0 3
         , objTestPath: "1-property-additional-1.medea"
         , objTestPred: hasProperty "foo" Arg.isString
+        , objAdditionalPred: const true
         }
   testObject
     $ ObjTestParams
         { objTestOpts: ObjGenOpts [ "foo" ] [] 0 3
         , objTestPath: "1-property-additional-2.medea"
         , objTestPred: hasProperty "foo" Arg.isNumber
+        , objAdditionalPred: const true
         }
   testObject
     $ ObjTestParams
         { objTestOpts: ObjGenOpts [ "foo" ] [] 0 3
         , objTestPath: "1-property-additional-3.medea"
         , objTestPred: hasProperty "foo" Arg.isObject
+        , objAdditionalPred: const true
         }
   -- Object schema with 3 properties and no additional allowed
   testObject
@@ -140,24 +149,29 @@ suite = do
         { objTestOpts: ObjGenOpts [ "foo", "bar", "bazz" ] [] 0 0
         , objTestPath: "3-property-no-additional-1.medea"
         , objTestPred: hasProperty "foo" Arg.isBoolean && hasProperty "bazz" Arg.isString
+        , objAdditionalPred: const false
         }
   testObject
     $ ObjTestParams
         { objTestOpts: ObjGenOpts [ "bar", "bazz" ] [ "foo" ] 0 0
         , objTestPath: "3-property-no-additional-2.medea"
-        , objTestPred: hasOptionalProperty "foo" Arg.isNumber && hasProperty "bazz" Arg.isNull
+
+        , objTestPred: (hasOptionalProperty "foo" (Arg.isNumber || Arg.isArray) && hasProperty "bazz" (Arg.isNull || Arg.isBoolean) && hasProperty "bar" (const true))
+        , objAdditionalPred: const false
         }
   testInvalidObject
     $ ObjTestParams
         { objTestOpts: ObjGenOpts [ "foo", "bar", "bazz" ] [] 1 3
         , objTestPath: "3-property-no-additional-1.medea"
         , objTestPred: const true
+        , objAdditionalPred: const false
         }
   testInvalidObject
     $ ObjTestParams
         { objTestOpts: ObjGenOpts [ "bar", "bazz" ] [ "foo" ] 1 3
         , objTestPath: "3-property-no-additional-2.medea"
         , objTestPred: const true
+        , objAdditionalPred: const false
         }
   -- Object schema with 3 properties and additional allowed
   testObject
@@ -165,13 +179,37 @@ suite = do
         { objTestOpts: ObjGenOpts [ "foo", "bar", "bazz" ] [] 0 3
         , objTestPath: "3-property-additional-allowed-1.medea"
         , objTestPred: hasProperty "foo" Arg.isBoolean && hasProperty "bazz" Arg.isString
+        , objAdditionalPred: const true
         }
   testObject
     $ ObjTestParams
         { objTestOpts: ObjGenOpts [ "bar", "bazz" ] [ "foo" ] 0 3
         , objTestPath: "3-property-additional-allowed-2.medea"
         , objTestPred: (hasOptionalProperty "foo" Arg.isNumber) && (hasProperty "bazz" Arg.isNull)
+        , objAdditionalPred: const true
         }
+  -- Object schema with additional property schema" 
+  testObject
+    $ ObjTestParams
+      { objTestOpts: ObjGenOpts [] [] 0 3,
+        objTestPath: "map-number-bool.medea",
+        objTestPred: const true,
+        objAdditionalPred: Arg.isNumber || Arg.isBoolean
+      }
+  testObject
+    $ ObjTestParams
+      { objTestOpts: ObjGenOpts ["foo"] [] 0 3,
+        objTestPath: "map-with-1-specified.medea",
+        objTestPred: hasProperty "foo" (Arg.isArray || Arg.isObject),
+        objAdditionalPred: Arg.isNumber || Arg.isBoolean
+      }
+  testObject
+    $ ObjTestParams
+      { objTestOpts: ObjGenOpts ["foo"] ["bazz"] 0 3,
+        objTestPath: "map-with-2-specified.medea",
+        objTestPred: hasProperty "foo" (Arg.isArray || Arg.isObject),
+        objAdditionalPred: Arg.isNumber || Arg.isBoolean
+       }
   --Array schema with element_type only
   testList
     $ ListTestParams
@@ -244,6 +282,7 @@ data ObjTestParams
     { objTestOpts :: ObjGenOpts
     , objTestPath :: String
     , objTestPred :: Json -> Boolean
+    , objAdditionalPred :: Json -> Boolean
     }
 
 data ListTestParams
@@ -281,11 +320,21 @@ testWrap' :: String -> String -> (Schema -> TestPlanM Unit) -> TestPlanM Unit
 testWrap' name fp tests = testWrap name fp (const $ pure unit) tests
 
 testObject :: ObjTestParams -> TestPlanM Unit
-testObject (ObjTestParams { objTestOpts, objTestPath, objTestPred }) =
+testObject (ObjTestParams { objTestOpts, objTestPath, objTestPred, objAdditionalPred }) =
   testWrap' "Object test" objTestPath
     $ \scm -> do
-        test ("Should validate valid objects" <> ": " <> objTestPath) (propertyTest $ validationSuccess (arbitraryObj objTestOpts) objTestPred scm)
-        test ("Should not validate invalid objects" <> ": " <> objTestPath) (propertyTest $ validationFail (arbitraryObj objTestOpts) (not <<< objTestPred) scm)
+        test ("Should validate valid objects" <> ": " <> objTestPath) (propertyTest $ validationSuccess (arbitraryObj objTestOpts) p' scm)
+        test ("Should not validate invalid objects" <> ": " <> objTestPath) (propertyTest $ validationFail (arbitraryObj objTestOpts) (not <<< p') scm)
+  where
+    p' =  objTestPred && makeMapPred objTestOpts objAdditionalPred
+
+makeMapPred :: ObjGenOpts -> (Json -> Boolean) -> Json -> Boolean
+makeMapPred (ObjGenOpts props optProps _ _) p 
+  = Arg.caseJsonObject 
+    false 
+   (all p <<< Obj.filterWithKey (\k _ -> k `notElem` specifiedProps)) 
+  where
+    specifiedProps = props <> optProps
 
 -- Tests for Object values that should always get invalidated.
 testInvalidObject :: ObjTestParams -> TestPlanM Unit
@@ -411,7 +460,7 @@ validationTest eitherPred gen p scm = do
   a <- gen
   pure $ prop a
   where
-  prop v = toResult p v ==> toResult (eitherPred <<< runExcept <<< validate scm <<< Arg.stringify <<< Arg.encodeJson) v
+  prop v = toResult  p v ==> toResult (eitherPred <<< runExcept <<< validate scm <<< Arg.stringify <<< Arg.encodeJson) v
 
 toResult' :: Boolean -> Result
 toResult' a = withHelp a "failed predicate"
