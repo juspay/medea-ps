@@ -7,7 +7,7 @@ import Test.QuickCheck.Gen as Gen
 import Data.Argonaut (Json)
 import Data.Argonaut as Arg
 import Data.Array as Array
-import Data.List.Lazy (replicateM)
+import Data.List.Lazy as List
 import Data.NonEmpty ((:|))
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Reader.Trans (ReaderT, runReaderT, asks, local)
@@ -38,6 +38,25 @@ string = identity
 array :: forall a. Array a -> Array a
 array = identity
 
+-- Takes 4 fields:
+-- required properties,
+-- optional properties,
+-- minimum additional properties &
+-- maximum additional properties.
+
+data ObjGenOpts = ObjGenOpts (Array String) (Array String) Int Int
+
+arbitraryObj :: ObjGenOpts -> Gen Json
+arbitraryObj opts = runReaderT (makeRandomObject opts) 2
+
+makeRandomObject :: ObjGenOpts -> ReaderT Int Gen Json
+makeRandomObject (ObjGenOpts props optionalProps minAdditional maxAdditional) = do
+  entryCount <- lift $ Gen.chooseInt minAdditional maxAdditional
+  genKeys <- List.replicateM entryCount $ lift arbitrary
+  someOptionalProps <- List.filterM (\_ -> lift arbitrary) (List.fromFoldable optionalProps)
+  let keys = genKeys <> List.fromFoldable props <> someOptionalProps
+  keyVals <- traverse (\x -> (Tuple x) <$> local dec makeRandomJson) keys
+  pure $ Arg.encodeJson $ Obj.fromFoldable $ keyVals
 
 makeRandomJson :: ReaderT Int Gen Json
 makeRandomJson = do
@@ -50,12 +69,9 @@ makeRandomJson = do
     3 -> lift $ Arg.encodeJson <$> (arbitrary :: Gen String)
     4 -> do
       len <- lift $ Gen.chooseInt 0 5
-      list <- replicateM len (local dec makeRandomJson)
+      list <- List.replicateM len (local dec makeRandomJson)
       pure $ Arg.encodeJson $ Array.fromFoldable list
-    _ -> do
-      entryCount <- lift $ Gen.chooseInt 0 5
-      keyVals <- replicateM entryCount (Tuple <$> lift arbitrary <*> local dec makeRandomJson)
-      pure $ Arg.encodeJson $ Obj.fromFoldable keyVals
-    where dec n = sub 1 n
+    _ -> makeRandomObject (ObjGenOpts [] [] 0 5)
 
-
+dec :: Int -> Int
+dec n = sub 1 n

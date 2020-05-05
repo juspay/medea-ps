@@ -40,7 +40,7 @@ parseSpecification = do
   _ <- parseLine 4 $ parseReservedChunk "length"
   spec <- try permute
   case spec of 
-       Specification { minLength: Nothing, maxLength: Nothing } -> fail $ show EmptyLengthSpec
+       Specification { minLength: Nothing, maxLength: Nothing } -> fail $ show EmptyLengthArraySpec
        _ -> pure spec
   where 
     permute = runPermutation $ (\minLength maxLength -> Specification { minLength, maxLength })

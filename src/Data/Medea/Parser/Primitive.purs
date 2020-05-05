@@ -20,7 +20,6 @@ import Data.Medea.Parser.Parsing (takeWhile1P, eol)
 import Data.Medea.JSONType (JSONType(..))
 import Data.Medea.Parser.Types (MedeaParser, MedeaParseErr(..))
 
-import Debug.Trace (traceM)
 
 newtype Identifier = Identifier String
 
@@ -123,6 +122,8 @@ newtype MedeaString = MedeaString String
 derive instance eqMedeaString :: Eq MedeaString
 
 derive instance ordMedeaString :: Ord MedeaString
+
+derive newtype instance showMedeaString :: Show MedeaString
 
 derive instance newtypeMedeaString :: Newtype MedeaString _
 
