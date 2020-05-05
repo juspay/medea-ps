@@ -123,8 +123,8 @@ let upstream =
 
 let overrides = {=}
 
-let additions = {
-  tree = 
+let additions = 
+  { tree = 
       { dependencies =
           [ "console"
           , "lists"
@@ -135,6 +135,28 @@ let additions = {
           "https://github.com/dmbfm/purescript-tree.git"
       , version =
           "v1.3.2"
+      }
+  , mote = 
+      { dependencies = 
+        [ "these"
+        , "transformers"
+        , "arrays"
+        ]
+      , repo =
+        "https://github.com/garyb/purescript-mote"
+      , version =
+        "v1.1.0"
+      }
+  , quickcheck-combinators = 
+      { dependencies =
+        [ "prelude"
+        , "quickcheck"
+        , "typelevel"
+        ]
+      , repo =
+        "https://github.com/athanclark/purescript-quickcheck-combinators.git"
+      , version = 
+        "v0.1.2"
       }
 }
 

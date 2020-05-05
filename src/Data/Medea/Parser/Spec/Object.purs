@@ -5,7 +5,7 @@ import Data.Medea.Parser.Primitive (parseLine, parseReservedChunk)
 import Data.Medea.Parser.Spec.Property as Property
 import Data.Medea.Parser.Types (MedeaParser)
 import Text.Parsing.Parser.Combinators (option, try)
-
+import Debug.Trace (traceM)
 data Specification 
   = Specification 
   { properties :: Array Property.Specification
@@ -22,17 +22,18 @@ additionalAllowed (Specification {additionalAllowed: a}) = a
 derive instance eqSpecification :: Eq Specification
 
 mkSpec :: Array Property.Specification -> Boolean -> Specification
-mkSpec properties additionalAllowed = Specification { properties, additionalAllowed }
+mkSpec p aa = Specification { properties: p, additionalAllowed: aa }
 
 defaultSpec :: Specification
 defaultSpec = mkSpec [] true
+
 
 parseSpecification :: MedeaParser Specification
 parseSpecification 
   = do
     _ <- parseLine 4 $ parseReservedChunk "properties"
-    mkSpec <$> parseProperties <*> try parseAdditionalAllowed
+    mkSpec <$> parseProperties <*> parseAdditionalAllowed
   where
     parseProperties = many (try Property.parseSpecification)
-    parseAdditionalAllowed = option false <<< parseLine 8 $
+    parseAdditionalAllowed = option false <<< try <<< parseLine 8 $
       parseReservedChunk "additional-properties-allowed" $> true
