@@ -13,7 +13,7 @@ import Data.HashMap as HM
 import Data.Medea.JSONType (JSONType(..))
 import Data.Medea.Parser.Primitive (Identifier, MedeaString, ReservedIdentifier(..), identFromReserved, isReserved, isStartIdent, tryPrimType, typeOf)
 import Data.Medea.Parser.Spec.Array as Array
-import Data.Medea.Parser.Spec.Object (properties, additionalAllowed)
+import Data.Medea.Parser.Spec.Object (properties, additionalAllowed, additionalSchema)
 import Data.Medea.Parser.Spec.Property (propName, propSchema, propOptional)
 import Data.Medea.Parser.Spec.Schema as Schema
 import Data.Medea.Parser.Spec.Schemata as Schemata
@@ -67,6 +67,7 @@ data CompiledSchema
     , maxListLen :: Maybe Natural
     , props :: HashMap String (Tuple TypeNode Boolean)
     , additionalProps :: Boolean
+    , additionalPropSchema :: TypeNode
     , arrayTypes :: Maybe ArrayType
     , stringVals :: Array String
     }
@@ -138,6 +139,7 @@ compileSchema scm@(Schema.Specification { name: schemaName, types: (Type.Specifi
           , arrayTypes: arrType
           , props: propMap
           , additionalProps: maybe true additionalAllowed objSpec
+          , additionalPropSchema: identToNode $ objSpec >>= additionalSchema
           , stringVals: String.toReducedSpec stringValsSpec
           }
   when (shouldNotHavePropertySpec compiledScm hasPropSpec)
@@ -222,7 +224,7 @@ getTypeRefs :: CompiledSchema -> Array TypeNode
 getTypeRefs (CompiledSchema cs) = fromFoldable $ fromNonEmpty Set.insert $ cs.typesAs
 
 getPropertyTypeRefs :: CompiledSchema -> Array TypeNode
-getPropertyTypeRefs (CompiledSchema cs) = map fst $ HM.values $ cs.props
+getPropertyTypeRefs (CompiledSchema cs) = (map fst $ HM.values $ cs.props) <> [cs.additionalPropSchema]
 
 getTypesAsGraph :: Map Identifier CompiledSchema -> Cyclic.AdjacencyMap TypeNode
 getTypesAsGraph = Cyclic.edges <<< concatMap intoTypesAsEdges <<< fromFoldable <<< Map.values

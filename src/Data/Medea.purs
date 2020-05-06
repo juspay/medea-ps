@@ -282,7 +282,7 @@ checkTupleLength arr err (TupleType nodes) =
 checkObject :: forall m. Alternative m => MonadReader Schema m => MonadState (Tuple (NonEmpty Set TypeNode) (Maybe Identifier)) m => MonadError ValidationError m => HashMap String Json -> Identifier -> m (Cofree ValidJSONF SchemaInformation)
 checkObject obj parIdent = do
   schema@(CompiledSchema cs) <- lookupSchema parIdent
-  valsAndTypes <- pairPropertySchemaAndVal obj (cs.props) (cs.additionalProps) parIdent
+  valsAndTypes <- pairPropertySchemaAndVal obj parIdent
   checkedObj <- traverse assess valsAndTypes
   pure $ ObjectSchema :< ObjectF checkedObj
   where
@@ -290,19 +290,22 @@ checkObject obj parIdent = do
     put (Tuple (typeNode :| Set.empty) Nothing)
     checkTypes val
 
-pairPropertySchemaAndVal :: forall m. Alternative m => MonadReader Schema m => MonadError ValidationError m => HashMap String Json -> HashMap String (Tuple TypeNode Boolean) -> Boolean -> Identifier -> m (HashMap String (Tuple Json TypeNode))
-pairPropertySchemaAndVal obj properties extraAllowed parIdent = do
-  mappedObj <- traverse pairProperty $ mapWithIndex Tuple obj
-  traverse_ isMatched $ (mapWithIndex Tuple (properties :: HashMap String (Tuple TypeNode Boolean)) :: HashMap String (Tuple String (Tuple TypeNode Boolean)))
+pairPropertySchemaAndVal :: forall m. Alternative m => MonadReader Schema m => MonadError ValidationError m => HashMap String Json ->  Identifier -> m (HashMap String (Tuple Json TypeNode))
+pairPropertySchemaAndVal obj parIdent = do
+  scm@(CompiledSchema cs) <- lookupSchema parIdent
+  mappedObj <- traverse (pairProperty scm) $ mapWithIndex Tuple obj
+  traverse_ isMatched $ (mapWithIndex Tuple (cs.props :: HashMap String (Tuple TypeNode Boolean)) :: HashMap String (Tuple String (Tuple TypeNode Boolean)))
   pure mappedObj
   where
-  pairProperty (Tuple propName j) = case HM.lookup propName properties of
-    Just (Tuple typeNode _) -> pure (Tuple j typeNode)
-    Nothing
-      | extraAllowed -> do
-        pure (Tuple j AnyNode)
-      | otherwise -> do
-        throwError $ AdditionalPropFoundButBanned (textify parIdent) $ propName
+  pairProperty scm@(CompiledSchema cs) (Tuple propName j) 
+    = case HM.lookup propName cs.props of
+      Just (Tuple typeNode _) -> pure (Tuple j typeNode)
+      Nothing
+        | cs.additionalProps -> do
+
+          pure (Tuple j cs.additionalPropSchema)
+        | otherwise -> do
+          throwError $ AdditionalPropFoundButBanned (textify parIdent) $ propName
 
   isMatched :: String /\ TypeNode /\ Boolean -> m Unit
   isMatched (propName /\ _ /\ optional) = do
