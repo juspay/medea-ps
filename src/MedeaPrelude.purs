@@ -1,4 +1,4 @@
-module MedeaPrelude 
+module MedeaPrelude
   ( module Prelude
   , module Aff
   , module Array
@@ -13,13 +13,13 @@ module MedeaPrelude
   , module Map
   , module Maybe
   , module MonadZero
+  , module Nested
   , module Newtype
   , module Set
   , module Traversable
   , module Tuple
   , module Undefined
-  )
-  where
+  ) where
 
 import Prelude
 import Control.MonadZero (guard) as MonadZero
@@ -40,5 +40,6 @@ import Data.Newtype (class Newtype, unwrap) as Newtype
 import Data.Set (Set(..)) as Set
 import Data.Traversable (class Traversable, traverse, traverse_, sequence, sequenceDefault, for) as Traversable
 import Data.Tuple (Tuple(..), fst, snd, uncurry) as Tuple
+import Data.Tuple.Nested ((/\), type (/\)) as Nested
 import Data.Typelevel.Undefined (undefined) as Undefined
 import Effect.Aff.Class (class MonadAff, liftAff) as Aff

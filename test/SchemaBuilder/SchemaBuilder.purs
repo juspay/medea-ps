@@ -4,22 +4,30 @@ import MedeaPrelude hiding (group)
 import Control.Monad.Trans.Class (lift)
 import Data.Medea.Loader (loadSchemaFromFile)
 import Test.Spec.Assertions (shouldSatisfy)
-import TestM.Util (listMedeaFiles)
-import TestM (TestPlanM, isSchemaError, runTestM)
-
+import TestM (TestPlanM, isSchemaError, runTestM, listMedeaFiles, appendPath)
 import Mote (group, test)
 
 suite :: TestPlanM Unit
 suite = do
-  let prefix = "./conformance/schema-builder"
-  testFiles <- lift $ listMedeaFiles prefix
-  group "invalid schemata cases" $ do
-    traverse_ makeSchemaTest $ testFiles
+  let
+    prefix = "./conformance/schema-builder"
+  testFilesPass <- lift $ listMedeaFiles (appendPath prefix "/pass")
+  testFilesFail <- lift $ listMedeaFiles (appendPath prefix "/fail")
+  group "invalid schemata cases"
+    $ do
+        traverse_ makeFailTest $ testFilesFail
+  group "Valid schemata cases"
+    $ do
+        traverse_ makePassTest $ testFilesPass
 
-makeSchemaTest :: String -> TestPlanM Unit
-makeSchemaTest fp = do
+makeFailTest :: String -> TestPlanM Unit
+makeFailTest fp = do
   test (" Schema case (shouldn't build) :" <> fp) do
     result <- runTestM <<< loadSchemaFromFile $ fp
     result `shouldSatisfy` isSchemaError
 
-
+makePassTest :: String -> TestPlanM Unit
+makePassTest fp = do
+  test (" Schema case (should build) :" <> fp) do
+    result <- runTestM <<< loadSchemaFromFile $ fp
+    result `shouldSatisfy` isRight

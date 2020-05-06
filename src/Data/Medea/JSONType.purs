@@ -3,7 +3,7 @@ module Data.Medea.JSONType where
 import MedeaPrelude
 import Data.Argonaut (Json, caseJson)
 
-data JSONType 
+data JSONType
   = JSONNull
   | JSONBoolean
   | JSONNumber
@@ -21,11 +21,12 @@ instance showJSONType :: Show JSONType where
   show x = genericShow x
 
 typeOf :: Json -> JSONType
-typeOf j = caseJson
-  (\u -> JSONNull)
-  (\b -> JSONBoolean)
-  (\n -> JSONNumber)
-  (\s -> JSONString)
-  (\a -> JSONArray)
-  (\o -> JSONObject)
-  j
+typeOf j =
+  caseJson
+    (\u -> JSONNull)
+    (\b -> JSONBoolean)
+    (\n -> JSONNumber)
+    (\s -> JSONString)
+    (\a -> JSONArray)
+    (\o -> JSONObject)
+    j

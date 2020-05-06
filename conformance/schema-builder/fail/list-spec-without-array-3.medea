@@ -1,0 +1,8 @@
+$schema $start
+    $type
+        $object
+        $string
+        foo
+    $max-length 3
+
+$schema foo

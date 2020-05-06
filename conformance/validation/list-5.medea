@@ -1,0 +1,5 @@
+$schema $start
+    $type
+        $array
+    $max-length 5
+    $min-length 3

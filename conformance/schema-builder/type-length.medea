@@ -1,6 +1,0 @@
-$schema $start
-    $type
-        $array
-    $length
-        $minimum 3
-        $maximum 2

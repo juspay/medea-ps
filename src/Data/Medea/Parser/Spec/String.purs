@@ -1,13 +1,19 @@
-module Data.Medea.Parser.Spec.String where
+module Data.Medea.Parser.Spec.String
+  ( Specification(..)
+  , defaultSpec
+  , parseSpecification
+  , toReducedSpec
+  ) where
 
 import MedeaPrelude
 import Unsafe.Coerce (unsafeCoerce)
 import Text.Parsing.Parser (fail)
 import Text.Parsing.Parser.Combinators (try)
 import Data.Medea.Parser.Types (MedeaParser, MedeaParseErr(..))
-import Data.Medea.Parser.Primitive (MedeaString, parseLine, parseReservedChunk, parseString)
+import Data.Medea.Parser.Primitive (MedeaString, ReservedIdentifier(..), parseLine, parseReserved, parseString)
 
-newtype Specification = Specification (Array MedeaString)
+newtype Specification
+  = Specification (Array MedeaString)
 
 derive newtype instance eqSpecification :: Eq Specification
 
@@ -26,8 +32,9 @@ defaultSpec = Specification []
 
 parseSpecification :: MedeaParser Specification
 parseSpecification = do
-  _ <- parseLine 4 $ parseReservedChunk "string_values"
+  _ <- parseLine 4 $ parseReserved RStringValues
   items <- many $ try $ parseLine 8 parseString
-  if length items == 0 
-    then fail $ show EmptyStringValueSpec
-    else pure $ Specification items
+  if null items then
+    fail $ show EmptyStringValueSpec
+  else
+    pure $ Specification items

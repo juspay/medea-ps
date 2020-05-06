@@ -1,0 +1,7 @@
+$schema $start
+    $type
+        $array
+    $element-type
+        foo
+
+$schema foo

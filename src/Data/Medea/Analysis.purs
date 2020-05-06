@@ -1,21 +1,26 @@
-module Data.Medea.Analysis where
+module Data.Medea.Analysis
+  ( AnalysisError(..)
+  , ArrayType(..)
+  , CompiledSchema(..)
+  , TypeNode(..)
+  , compileSchemata
+  ) where
 
 import MedeaPrelude
+import Control.Alternative ((<|>))
 import Control.Monad.Error.Class (class MonadError, throwError)
-import Control.Monad.State.Class (gets, modify)
-import Control.Monad.State.Trans (evalStateT)
 import Data.HashMap as HM
-import Data.Medea.JSONType (JSONType)
-import Data.Medea.Parser.Primitive (Identifier, MedeaString, startIdentifier, isReserved, isStartIdent, tryPrimType, typeOf)
-import Data.Medea.Parser.Spec.Array (minLength, maxLength)
+import Data.Medea.JSONType (JSONType(..))
+import Data.Medea.Parser.Primitive (Identifier, MedeaString, ReservedIdentifier(..), identFromReserved, isReserved, isStartIdent, tryPrimType, typeOf)
+import Data.Medea.Parser.Spec.Array as Array
 import Data.Medea.Parser.Spec.Object (properties, additionalAllowed)
 import Data.Medea.Parser.Spec.Property (propName, propSchema, propOptional)
 import Data.Medea.Parser.Spec.Schema as Schema
 import Data.Medea.Parser.Spec.Schemata as Schemata
 import Data.Medea.Parser.Spec.Type as Type
 import Data.Medea.Parser.Spec.String as String
-import Data.Natural (Natural)
-import Data.AcyclicAdjacencyMap (AcyclicAdjacencyMap)
+import Data.Natural (Natural, intToNat)
+import Data.NonEmpty (NonEmpty, fromNonEmpty, (:|))
 import Data.AcyclicAdjacencyMap as Acyclic
 import Data.AdjacencyMap as Cyclic
 import Data.Set as Set
@@ -25,12 +30,18 @@ import Unsafe.Coerce (unsafeCoerce)
 data AnalysisError
   = DuplicateSchemaName Identifier
   | NoStartSchema
-  | DanglingTypeReference Identifier
+  | DanglingTypeReference Identifier Identifier
   | TypeRelationIsCyclic
   | ReservedDefined Identifier
-  | UnreachableSchemata
+  | DefinedButNotUsed Identifier
   | MinMoreThanMax Identifier
-  | DanglingTypeRefProp Identifier
+  | DanglingTypeRefProp Identifier Identifier
+  | DanglingTypeRefList Identifier Identifier
+  | DanglingTypeRefTuple Identifier Identifier
+  | PropertyWithoutObject Identifier
+  | ListWithoutArray Identifier
+  | TupleWithoutArray Identifier
+  | StringValsWithoutString Identifier
   | DuplicatePropName Identifier MedeaString
   | UnexpectedTypeNode
 
@@ -48,136 +59,253 @@ derive instance genericTypeNode :: Generic TypeNode _
 instance showTypeNode :: Show TypeNode where
   show x = genericShow x
 
-type ReducedTypeSpec = Array TypeNode
-type ReducedArraySpec = Tuple (Maybe Natural) (Maybe Natural)
-type ReducedObjectSpec = Tuple (HM.HashMap String (Tuple TypeNode Boolean)) Boolean
-type ReducedStringValSpec = Array String
+data CompiledSchema
+  = CompiledSchema
+    { schemaNode :: TypeNode
+    , typesAs :: NonEmpty Set TypeNode
+    , minListLen :: Maybe Natural
+    , maxListLen :: Maybe Natural
+    , props :: HashMap String (Tuple TypeNode Boolean)
+    , additionalProps :: Boolean
+    , arrayTypes :: Maybe ArrayType
+    , stringVals :: Array String
+    }
 
-data ReducedSchema = ReducedSchema {
-  reducedTypes :: ReducedTypeSpec,
-  reducedStringVals :: ReducedStringValSpec, 
-  reducedArray :: ReducedArraySpec,
-  reducedObject :: ReducedObjectSpec
-}
+derive instance genericCompiledSchema :: Generic CompiledSchema _
 
-mkReducedSchema :: ReducedTypeSpec -> ReducedStringValSpec -> ReducedArraySpec -> ReducedObjectSpec -> ReducedSchema
-mkReducedSchema rt rsv ra ro 
-  = ReducedSchema 
-  { reducedTypes: rt
-  , reducedStringVals : rsv
-  , reducedArray: ra
-  , reducedObject: ro
-  }
--- simple getters to mimic haskell record getters
-reducedObject :: ReducedSchema -> ReducedObjectSpec
-reducedObject (ReducedSchema { reducedObject:ro }) = ro
-
-reducedStringVals :: ReducedSchema -> ReducedStringValSpec
-reducedStringVals (ReducedSchema {reducedStringVals: sv}) = sv
-
-reducedArray :: ReducedSchema -> ReducedArraySpec
-reducedArray (ReducedSchema { reducedArray:ra }) = ra
-
-reducedType :: ReducedSchema -> ReducedTypeSpec
-reducedType (ReducedSchema { reducedTypes: rt }) = rt
-
-derive instance genericReducedSchema :: Generic ReducedSchema _
-
-instance showReducedSchema :: Show ReducedSchema where
+instance showCompiledSchema :: Show CompiledSchema where
   show x = genericShow x
 
-intoAcyclic :: forall m. MonadError AnalysisError m => Array (Tuple TypeNode TypeNode) -> m (AcyclicAdjacencyMap TypeNode)
-intoAcyclic = maybe (throwError TypeRelationIsCyclic) pure <<< Acyclic.toAcyclic <<< Cyclic.edges
+data ArrayType
+  = ListType TypeNode
+  | TupleType (Array TypeNode)
 
-intoEdges :: forall m. Monad m => MonadError AnalysisError m => Map Identifier ReducedSchema -> ReducedSchema -> m (Array (Tuple TypeNode TypeNode))
-intoEdges mir redScm = evalStateT (go [] redScm startNode <* checkUnusedSchema <* checkUndefinedPropSchema) Set.empty
+derive instance genericArrayType :: Generic ArrayType _
+
+instance showArrayType :: Show ArrayType where
+  show x = genericShow x
+
+checkAcyclic :: forall m. MonadError AnalysisError m => Map Identifier CompiledSchema -> m Unit
+checkAcyclic m =
+  when (isNothing <<< Acyclic.toAcyclic <<< getTypesAsGraph $ m)
+    $ throwError TypeRelationIsCyclic
+
+compileSchemata :: forall m. MonadError AnalysisError m => Schemata.Specification -> m (Map Identifier CompiledSchema)
+compileSchemata (Schemata.Specification v) = do
+  m <- foldM go Map.empty v
+  checkStartSchema m
+  checkDanglingReferences getTypeRefs DanglingTypeReference m
+  checkDanglingReferences getPropertyTypeRefs DanglingTypeRefProp m
+  checkDanglingReferences getListTypeRefs DanglingTypeRefList m
+  checkDanglingReferences getTupleTypeRefs DanglingTypeRefTuple m
+  checkUnusedSchemata m
+  checkAcyclic m
+  pure m
   where
-    startNode = CustomNode startIdentifier 
-    checkUnusedSchema = do
-       reachableSchemas <- gets Set.size
-       when (reachableSchemas < Map.size mir) $ throwError UnreachableSchemata
-    checkUndefinedPropSchema =
-      let result = filter isUndefinedNode <<< map fst <<< HM.values <<< fst <<< reducedObject $ redScm
-      in case uncons result of
-        Nothing -> pure unit
-        Just { head: (CustomNode ident), tail } -> throwError $ DanglingTypeRefProp ident
-        Just _ -> pure unit
-    isUndefinedNode (CustomNode ident) = isNothing <<< Map.lookup ident $ mir
-    isUndefinedNode _ = false
-    go acc scm node = do
-      alreadySeen <- gets (Set.member node)
-      if alreadySeen
-        then pure acc
-        else do
-           _ <- modify (Set.insert node)
-           traverseRefs acc node $ reducedType scm
-    traverseRefs acc node [] = pure $ cons (Tuple node AnyNode) acc
-    traverseRefs acc node refs =
-      (acc <> _) <<< concat <$> traverse (resolveLinks node) refs
-      -- Note: t cannot be AnyNode
-    resolveLinks u t 
-      = case t of
-        PrimitiveNode _ -> pure <<< pure $ Tuple u t
-        CustomNode ident -> case Map.lookup ident mir of
-          Nothing -> throwError <<< DanglingTypeReference $ ident
-          Just scm -> cons <$> pure (Tuple u t) <*> go [] scm t
-        AnyNode -> throwError $ UnexpectedTypeNode 
+  go acc spec = mapAlterF (checkedInsert spec) (Schema.name spec) acc
 
--- alterF is not part of the PS Map library
-mapAlterF :: forall f k a. Functor f => Ord k => (Maybe a -> f (Maybe a)) -> k -> Map k a -> f (Map k a)
-mapAlterF f k mka = update <$> ma
+  checkedInsert spec = case _ of
+    Nothing -> Just <$> compileSchema spec
+    Just _ -> throwError $ DuplicateSchemaName $ (Schema.name spec)
+
+compileSchema :: forall m. MonadError AnalysisError m => Schema.Specification -> m CompiledSchema
+compileSchema scm@(Schema.Specification { name: schemaName, types: (Type.Specification types), stringVals: stringValsSpec, array: (Array.Specification arraySpec), object: objSpec }) = do
+  when (isReserved schemaName && (not <<< isStartIdent) schemaName)
+    $ throwError
+    $ ReservedDefined
+    $ schemaName
+  let
+    minListLen = arraySpec.minLength
+
+    maxListLen = arraySpec.maxLength
+  when (minListLen > maxListLen && (not $ isNothing maxListLen))
+    $ throwError
+    $ MinMoreThanMax schemaName
+  propMap <- foldM go HM.empty (maybe [] properties objSpec)
+  let
+    arrType = getArrayTypes (arraySpec.elementType) (arraySpec.tupleSpec)
+
+    tupleLen = getTupleTypeLen arrType
+
+    hasPropSpec = isJust objSpec
+
+    compiledScm =
+      CompiledSchema
+        $ { schemaNode: identToNode <<< Just $ schemaName
+          , typesAs: defaultToAny <<< map (identToNode <<< Just) $ types
+          , minListLen: minListLen <|> tupleLen
+          , maxListLen: maxListLen <|> tupleLen
+          , arrayTypes: arrType
+          , props: propMap
+          , additionalProps: maybe true additionalAllowed objSpec
+          , stringVals: String.toReducedSpec stringValsSpec
+          }
+  when (shouldNotHavePropertySpec compiledScm hasPropSpec)
+    $ throwError
+    $ PropertyWithoutObject
+    $ schemaName
+  when (shouldNotHaveListSpec compiledScm)
+    $ throwError
+    $ ListWithoutArray
+    $ schemaName
+  when (shouldNotHaveTupleSpec compiledScm)
+    $ throwError
+    $ TupleWithoutArray
+    $ schemaName
+  when (shouldNotHaveStringSpec compiledScm)
+    $ throwError
+    $ StringValsWithoutString
+    $ schemaName
+  pure compiledScm
   where
-    update (Nothing) = Map.delete k mka
-    update (Just a) = Map.insert k a mka
-    ma = f $ Map.lookup k mka
+  go acc prop = hashMapAlterF (checkedInsert prop) (unsafeCoerce $ propName prop) acc
 
-hashMapAlterF :: forall f k a. Functor f => Hashable k => (Maybe a -> f (Maybe a)) -> k -> HashMap k a -> f (HashMap k a)
-hashMapAlterF f k mka = update <$> ma
+  checkedInsert prop = case _ of
+    Nothing -> pure <<< Just $ (Tuple (identToNode (propSchema prop)) (propOptional prop))
+    Just _ -> throwError $ DuplicatePropName schemaName (propName prop)
+
+  defaultToAny :: Array TypeNode -> NonEmpty Set TypeNode
+  defaultToAny xs = case uncons xs of
+    Nothing -> AnyNode :| Set.empty
+    Just { head, tail } -> head :| Set.fromFoldable tail
+
+checkStartSchema :: forall m. MonadError AnalysisError m => Map Identifier CompiledSchema -> m Unit
+checkStartSchema mic = case Map.lookup (identFromReserved RStart) mic of
+  Nothing -> throwError NoStartSchema
+  Just scm -> pure unit
+
+-- we need a `getRefs` argument here so that we can differentiate between
+-- different kinds of dangling references (types/props/lists/tuples)
+checkDanglingReferences :: forall m. MonadError AnalysisError m => (CompiledSchema -> Array TypeNode) -> (Identifier -> Identifier -> AnalysisError) -> Map Identifier CompiledSchema -> m Unit
+checkDanglingReferences getRefs err m = traverse_ go <<< array <<< Map.toUnfoldable $ m
   where
-    update (Nothing) = HM.delete k mka
-    update (Just a) = HM.insert k a mka
-    ma = f $ HM.lookup k mka
+  go (Tuple schemaName scm) = case uncons $ getDanglingRefs scm of
+    Nothing -> pure unit
+    Just { head: danglingRef } -> throwError $ err danglingRef schemaName
 
--- TODO checkStartSchema, intoMap
-intoMap :: forall m. MonadError AnalysisError m => Schemata.Specification -> m (Map Identifier ReducedSchema)
-intoMap (Schemata.Specification arr) = foldM go Map.empty arr
+  getDanglingRefs = filter isUndefined <<< mapMaybe fromCustomNode <<< getRefs
+
+  isUndefined ident = isNothing <<< Map.lookup ident $ m
+
+  fromCustomNode (CustomNode ident) = Just ident
+
+  fromCustomNode _ = Nothing
+
+  -- toUnfoldable can't infer Array
+  array :: forall a. Array a -> Array a
+  array = identity
+
+checkUnusedSchemata :: forall m. MonadError AnalysisError m => Map Identifier CompiledSchema -> m Unit
+checkUnusedSchemata m = traverse_ checkUnused <<< Map.keys $ m
   where
-    go acc spec = mapAlterF (checkedInsert spec) (Schema.name spec) acc
-    checkedInsert spec 
-      = case _ of
-        Nothing -> do
-          when (isReserved ident && (not <<< isStartIdent) ident)
-            $ throwError <<< ReservedDefined $ ident
-          Just <$> reduceSchema spec
-        Just _ -> throwError <<< DuplicateSchemaName $ ident
-        where
-          ident = Schema.name spec
+  checkUnused ident
+    | Set.member (CustomNode ident) allReferences = pure unit
+    | isStartIdent ident = pure unit
+    | otherwise = throwError $ DefinedButNotUsed ident
 
-reduceSchema :: forall m. MonadError AnalysisError m => Schema.Specification -> m ReducedSchema
-reduceSchema scm 
-  = do
-    let reducedArraySpec = unsafeCoerce (Tuple  (minLength arraySpec) (maxLength arraySpec))
-        typenodes = map (identToNode <<< Just) types
-        reducedStringValsSpec = String.toReducedSpec $ stringVals
-    reducedProps <- foldM go HM.empty (properties objSpec)
-    when (uncurry (>) reducedArraySpec) 
-      $ throwError $ MinMoreThanMax schemaName 
-    pure $ mkReducedSchema typenodes reducedStringValsSpec reducedArraySpec (Tuple reducedProps (additionalAllowed objSpec))
-  where
-    Schema.Specification { name: schemaName, stringVals, types: (Type.Specification types), array: arraySpec, object: objSpec } = scm
-    go acc prop = hashMapAlterF (checkedInsert prop) (unsafeCoerce propName prop) acc
-    checkedInsert prop 
-      = case _ of
-        Nothing -> pure $ Just $ (Tuple (identToNode (propSchema prop)) (propOptional prop))
-        Just _ -> throwError $ DuplicatePropName schemaName (propName prop)
-                              
+  allReferences = Set.unions <<< map getReferences <<< Map.values $ m
 
+  getReferences scm =
+    Set.fromFoldable
+      $ getTypeRefs scm
+      <> getPropertyTypeRefs scm
+      <> getListTypeRefs scm
+      <> getTupleTypeRefs scm
+
+-- Helpers
 identToNode :: Maybe Identifier -> TypeNode
 identToNode = case _ of
   Nothing -> AnyNode
   Just t -> maybe (CustomNode t) (PrimitiveNode <<< typeOf) $ tryPrimType t
 
-checkStartSchema :: forall m. MonadError AnalysisError m => Map Identifier ReducedSchema -> m ReducedSchema
-checkStartSchema mir = case Map.lookup startIdentifier mir of
-  Nothing -> throwError NoStartSchema
-  Just scm -> pure scm
+getTypeRefs :: CompiledSchema -> Array TypeNode
+getTypeRefs (CompiledSchema cs) = fromFoldable $ fromNonEmpty Set.insert $ cs.typesAs
+
+getPropertyTypeRefs :: CompiledSchema -> Array TypeNode
+getPropertyTypeRefs (CompiledSchema cs) = map fst $ HM.values $ cs.props
+
+getTypesAsGraph :: Map Identifier CompiledSchema -> Cyclic.AdjacencyMap TypeNode
+getTypesAsGraph = Cyclic.edges <<< concatMap intoTypesAsEdges <<< fromFoldable <<< Map.values
+
+intoTypesAsEdges :: CompiledSchema -> Array (Tuple TypeNode TypeNode)
+intoTypesAsEdges (CompiledSchema cs) = map (Tuple (cs.schemaNode)) <<< fromFoldable <<< fromNonEmpty Set.insert $ cs.typesAs
+
+getListTypeRefs :: CompiledSchema -> Array TypeNode
+getListTypeRefs (CompiledSchema cs) = case cs.arrayTypes of
+  Just (ListType typeNode) -> [ typeNode ]
+  _ -> []
+
+getTupleTypeRefs :: CompiledSchema -> Array TypeNode
+getTupleTypeRefs scm@(CompiledSchema cs) = case cs.arrayTypes of
+  Just (TupleType ts) -> ts
+  _ -> []
+
+getArrayTypes :: Maybe Identifier -> Maybe (Array Identifier) -> Maybe ArrayType
+getArrayTypes Nothing Nothing = Nothing
+
+getArrayTypes (Just ident) _ = Just <<< ListType <<< identToNode <<< Just $ ident
+
+getArrayTypes _ (Just idents) = Just <<< TupleType $ identToNode <<< Just <$> idents
+
+getTupleTypeLen :: Maybe ArrayType -> Maybe Natural
+getTupleTypeLen (Just (TupleType types)) = Just <<< intToNat <<< length $ types
+
+getTupleTypeLen _ = Nothing
+
+mapAlterF :: forall f a k. Functor f => Ord k => (Maybe a -> f (Maybe a)) -> k -> Map k a -> f (Map k a)
+mapAlterF f k m =
+  let
+    mv = Map.lookup k m
+  in
+    (_ <$> f mv)
+      $ \fres -> case fres of
+          Nothing -> Map.delete k m
+          Just v' -> Map.insert k v' m
+
+hashMapAlterF :: forall f k v. Functor f => Eq k => Hashable k => (Maybe v -> f (Maybe v)) -> k -> HashMap k v -> f (HashMap k v)
+hashMapAlterF f k m =
+  let
+    mv = HM.lookup k m
+  in
+    (_ <$> f mv)
+      $ \fres -> case fres of
+          Nothing -> HM.delete k m
+          Just v' -> HM.insert k v' m
+
+arrayNode :: TypeNode
+arrayNode = PrimitiveNode JSONArray
+
+objectNode :: TypeNode
+objectNode = PrimitiveNode JSONObject
+
+stringNode :: TypeNode
+stringNode = PrimitiveNode JSONString
+
+hasListSpec :: CompiledSchema -> Boolean
+hasListSpec (CompiledSchema cs) = case cs.arrayTypes of
+  Just (ListType _) -> true
+  Just (TupleType _) -> false
+  _ -> isJust $ cs.minListLen <|> cs.maxListLen
+
+hasTupleSpec :: CompiledSchema -> Boolean
+hasTupleSpec (CompiledSchema cs) = case cs.arrayTypes of
+  Just (TupleType _) -> true
+  _ -> false
+
+isNodeType :: TypeNode -> CompiledSchema -> Boolean
+isNodeType node scm@(CompiledSchema cs) = Set.member node $ fromNonEmpty Set.insert $ cs.typesAs
+
+hasStringSpec :: CompiledSchema -> Boolean
+hasStringSpec (CompiledSchema cs) = not $ null $ cs.stringVals
+
+shouldNotHavePropertySpec :: CompiledSchema -> Boolean -> Boolean
+shouldNotHavePropertySpec scm hasPropSpec = hasPropSpec && (not $ isNodeType objectNode scm)
+
+shouldNotHaveListSpec :: CompiledSchema -> Boolean
+shouldNotHaveListSpec scm = hasListSpec scm && (not $ isNodeType arrayNode scm)
+
+shouldNotHaveTupleSpec :: CompiledSchema -> Boolean
+shouldNotHaveTupleSpec scm = hasTupleSpec scm && (not $ isNodeType arrayNode scm)
+
+shouldNotHaveStringSpec :: CompiledSchema -> Boolean
+shouldNotHaveStringSpec scm = hasStringSpec scm && (not $ isNodeType stringNode scm)

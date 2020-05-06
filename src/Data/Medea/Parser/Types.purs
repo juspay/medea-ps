@@ -1,12 +1,18 @@
-module Data.Medea.Parser.Types where
+module Data.Medea.Parser.Types
+  ( MedeaParser
+  , MedeaParseErr(..)
+  ) where
 
 import MedeaPrelude
 import Text.Parsing.Parser (Parser)
 
-data MedeaParseErr 
-  = IdentifierTooLong String 
+data MedeaParseErr
+  = IdentifierTooLong String
+  | ExpectedReservedIdentifier String
   | LeadingZero String
+  | ConflictingSpecRequirements
   | EmptyLengthArraySpec
+  | EmptyArrayElements
   | EmptyStringValueSpec
 
 derive instance eqMedeaParseErr :: Eq MedeaParseErr
@@ -18,4 +24,5 @@ derive instance genericMedeaParseErr :: Generic MedeaParseErr _
 instance showMedeaParseErr :: Show MedeaParseErr where
   show x = genericShow x
 
-type MedeaParser = Parser String
+type MedeaParser
+  = Parser String

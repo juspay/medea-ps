@@ -3,7 +3,8 @@ module Data.Medea.MedeaJSON where
 import MedeaPrelude
 import Data.Argonaut (Json, stringify)
 
-newtype MJSON = MJSON Json 
+newtype MJSON
+  = MJSON Json
 
 derive instance newtypeMJSON :: Newtype MJSON _
 

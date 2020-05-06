@@ -1,41 +1,51 @@
-module Data.Medea.Parser.Spec.Property
-  (Specification, parseSpecification, mkSpec, propName, propSchema, propOptional) where
+module Data.Medea.Parser.Spec.Property (Specification, parseSpecification, mkSpec, propName, propSchema, propOptional) where
 
 import MedeaPrelude
 import Text.Parsing.Parser.Combinators (option, try)
-import Data.Medea.Parser.Primitive (Identifier, MedeaString, parseIdentifier, parseLine, parseReservedChunk, parseString, parseKeyVal)
+import Data.Medea.Parser.Primitive (Identifier, MedeaString, ReservedIdentifier(..), parseIdentifier, parseLine, parseReserved, parseString, parseKeyVal)
 import Data.Medea.Parser.Types (MedeaParser)
 
-data Specification 
-  = Specification 
-  { propName :: MedeaString
-  , propSchema :: Maybe Identifier
-  , propOptional :: Boolean
-  }
+data Specification
+  = Specification
+    { propName :: MedeaString
+    , propSchema :: Maybe Identifier
+    , propOptional :: Boolean
+    }
+
+derive instance genericSpecification :: Generic Specification _
+
+instance showSpecification :: Show Specification where
+  show x = genericShow x
 
 propName :: Specification -> MedeaString
-propName (Specification { propName }) = propName
+propName (Specification { propName: pn }) = pn
 
 propSchema :: Specification -> Maybe Identifier
-propSchema (Specification { propSchema }) = propSchema
+propSchema (Specification { propSchema: ps }) = ps
 
 propOptional :: Specification -> Boolean
-propOptional (Specification { propOptional }) = propOptional
+propOptional (Specification { propOptional: po }) = po
 
 derive instance eqSpecification :: Eq Specification
 
 mkSpec :: MedeaString -> Maybe Identifier -> Boolean -> Specification
-mkSpec propName propSchema propOptional = Specification {propName, propSchema, propOptional}
+mkSpec pn ps po = Specification { propName: pn, propSchema: ps, propOptional: po }
 
 parseSpecification :: MedeaParser Specification
-parseSpecification 
-  = mkSpec
+parseSpecification =
+  mkSpec
     <$> parsePropName
     <*> parsePropSchema
     <*> parsePropOptional
   where
-    parsePropName = parseLine 8 $ parseKeyVal "property-name" parseString
-    parsePropSchema = option Nothing <<< try <<< parseLine 8 $
-      Just <$> parseKeyVal "property-schema" parseIdentifier
-    parsePropOptional = option false <<< try <<< parseLine 8 $
-      parseReservedChunk "optional-property" $> true
+  parsePropName = parseLine 8 $ parseKeyVal RPropertyName parseString
+
+  parsePropSchema =
+    option Nothing <<< try <<< parseLine 8
+      $ Just
+      <$> parseKeyVal RPropertySchema parseIdentifier
+
+  parsePropOptional =
+    option false <<< try <<< parseLine 8
+      $ parseReserved ROptionalProperty
+      $> true

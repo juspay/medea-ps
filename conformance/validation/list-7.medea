@@ -1,0 +1,17 @@
+$schema $start
+    $type
+        bar
+
+$schema bar
+    $type
+        $array
+    $max-length 3
+    $min-length 2
+    $element-type
+        foo
+
+$schema foo
+    $type
+        $null
+        $boolean
+        $number

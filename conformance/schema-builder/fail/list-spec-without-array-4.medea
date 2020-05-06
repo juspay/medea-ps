@@ -1,0 +1,10 @@
+$schema $start
+    $type
+        $object
+        $string
+        foo
+    $element-type
+        $array
+    $max-length 3
+
+$schema foo

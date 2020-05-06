@@ -1,3 +1,2 @@
 $schema foo
-    $length
-        $maximum 42
+    $max-length 42

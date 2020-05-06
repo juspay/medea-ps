@@ -1,0 +1,9 @@
+$schema $start
+    $type
+        $object
+        $string
+        foo
+    $element-type
+        $array
+
+$schema foo
