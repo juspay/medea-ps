@@ -286,21 +286,25 @@ is either a JSON boolean or the JSON ``null``.
 
 To validate a JSON value using Medea from Haskell:
 
-```Haskell
-import Control.Monad.Trans.Except (runExcept, runExceptT)
-import Data.Aeson (Value)
+```Purescript
+import Prelude
+import Effect (Effect)
+import Effect.Log (log)
+import Control.Monad.Except.Trans (runExceptT)
+import Control.Monad.Except (runExcept)
+import Data.Argonaut (Json)
 import Data.Medea.Loader (loadSchemaFromFile)
 import Data.Medea (validate)
 
-main :: IO ()
+main :: Effect Unit
 main = do
   -- Compile a Medea schema graph from its file representation
   result <- runExceptT . loadSchemaFromFile $ "./my-schema.medea"
   case result of
-    Left e -> print e
+    Left e -> log e
     Right scm -> do
       -- Validate against the schema graph we just compiled 
-      validation <- runExcept $ validate scm (myJson :: Value)
+      validation <- runExcept $ validate scm (myJson :: Json)
       case validation of 
         Left e -> print e
         Right _ -> putStrLn "JSON is valid against schema"
