@@ -119,27 +119,16 @@ let additions =
 
 
 let upstream =
-      https://github.com/purescript/package-sets/releases/download/psc-0.13.6-20200331/packages.dhall sha256:350af1fdc68c91251138198f03ceedc4f8ed6651ee2af8a2177f87bcd64570d4
+      https://github.com/purescript/package-sets/releases/download/psc-0.14.5-20211116/packages.dhall sha256:7ba810597a275e43c83411d2ab0d4b3c54d0b551436f4b1632e9ff3eb62e327a
 
 let overrides = {=}
 
 let additions =
-      { tree =
-          { dependencies = [ "console", "lists", "prelude", "free" ]
-          , repo = "https://github.com/dmbfm/purescript-tree.git"
-          , version = "v1.3.2"
-          }
-      , mote =
+      { mote =
           { dependencies = [ "these", "transformers", "arrays" ]
           , repo = "https://github.com/garyb/purescript-mote"
           , version = "v1.1.0"
           }
-      , quickcheck-combinators =
-          { dependencies = [ "prelude", "quickcheck", "typelevel" ]
-          , repo =
-              "https://github.com/athanclark/purescript-quickcheck-combinators.git"
-          , version = "v0.1.2"
-          }
       }
 
-in  upstream ⫽ overrides ⫽ additions
+in  upstream ⫽ additions

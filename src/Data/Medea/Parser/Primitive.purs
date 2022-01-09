@@ -20,7 +20,7 @@ import MedeaPrelude
 import Control.Alternative ((<|>))
 import Control.Safely (replicateM_)
 import Data.Array as Array
-import Data.Char.Unicode (isSeparator, isControl)
+import Data.CodePoint.Unicode (GeneralCategory(..), generalCategory, isControl)
 import Data.Int as Int
 import Data.List (List)
 import Data.Natural (Natural)
@@ -34,6 +34,18 @@ import Text.Parsing.Parser.Token (digit)
 import Data.Medea.Parser.Parsing (takeWhile1P, eol)
 import Data.Medea.JSONType (JSONType(..))
 import Data.Medea.Parser.Types (MedeaParser, MedeaParseErr(..))
+
+-- vendored due to the function being deprecated from the unicode library
+
+isSeparator :: Char -> Boolean
+isSeparator c =
+    case generalCategory (String.codePointFromChar $ c) of
+        Just Space                   -> true
+        Just LineSeparator           -> true
+        Just ParagraphSeparator      -> true
+        _                            -> false
+
+isControl' = isControl <<< String.codePointFromChar
 
 newtype Identifier
   = Identifier String
@@ -283,7 +295,7 @@ checkedConstruct f t =
     pure <<< f $ t
 
 isSeperatorOrControl :: Char -> Boolean
-isSeperatorOrControl c = isSeparator c || isControl c
+isSeperatorOrControl c = isSeparator c || isControl' c
 
 parseLine :: forall a. Int -> MedeaParser a -> MedeaParser a
 parseLine spaces p = (replicateM_ spaces (char ' ')) *> p <* eol

@@ -3,24 +3,30 @@ module Test.Validator where
 import MedeaPrelude hiding (group)
 import Control.Monad.Except (runExcept)
 import Control.Monad.Trans.Class (lift)
+import Data.Array.NonEmpty as NEA
 import Data.Argonaut (class EncodeJson, Json)
 import Data.Argonaut as Arg
 import Data.Argonaut.Arbitrary (ObjGenOpts(..), RandomJson(..), arbitraryObj, genArrayJson, genJson)
 import Data.Medea (validate)
 import Data.Medea.Loader (loadSchemaFromFile, LoaderError)
 import Data.Medea.Schema (Schema)
-import Data.NonEmpty (NonEmpty, (:|))
+import Data.Newtype (wrap)
+import Data.NonEmpty (NonEmpty, (:|), fromNonEmpty)
 import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
 import Foreign.Object as Obj
 import Mote (group, test)
 import Test.QuickCheck.Combinators ((==>))
-import Test.QuickCheck (class Testable, Result, arbitrary, quickCheckGen, withHelp)
+import Test.QuickCheck (class Testable, Result(..), arbitrary, quickCheckGen, withHelp)
 import Test.QuickCheck.Gen (Gen)
 import Test.QuickCheck.Gen as Gen
 import TestM (TestPlanM, isParseError, isSchemaError, runTestM, appendPath)
 import Unsafe.Coerce (unsafeCoerce)
 import Test.Spec.Assertions (shouldNotSatisfy, fail)
+import Debug (spy)
+
+arrayFromNonEmptyArray :: NonEmpty Array String -> Array String
+arrayFromNonEmptyArray (a :| as) = a:as
 
 suite :: TestPlanM Unit
 suite = do
@@ -148,7 +154,7 @@ suite = do
     $ ObjTestParams
         { objTestOpts: ObjGenOpts [ "foo", "bar", "bazz" ] [] 0 0
         , objTestPath: "3-property-no-additional-1.medea"
-        , objTestPred: hasProperty "foo" Arg.isBoolean && hasProperty "bazz" Arg.isString
+        , objTestPred: hasProperty "foo" (Arg.isNumber || Arg.isArray) && hasProperty "bazz" (Arg.isNull || Arg.isBoolean) && hasProperty "bar" (const true) 
         , objAdditionalPred: const false
         }
   testObject
@@ -442,9 +448,9 @@ testStringVals fp validStrings =
       )
   where
   genString :: Gen.Gen String
-  genString = Gen.oneOf $ (Gen.elements validStrings) :| [ arbitrary ]
-
-  p = (_ `elem` validStrings)
+  genString = Gen.oneOf $ NEA.fromNonEmpty $ (Gen.elements $ NEA.fromNonEmpty validStrings) :| [ arbitrary ]
+  p :: String -> Boolean
+  p = (_ `elem` (arrayFromNonEmptyArray validStrings))
 
 propertyTest :: forall m a. MonadEffect m => Testable a => Gen a -> m Unit
 propertyTest g = liftEffect $ quickCheckGen $ g
@@ -458,9 +464,18 @@ validationFail = validationTest isLeft
 validationTest :: forall a. EncodeJson a => (forall b c. Either b c -> Boolean) -> Gen a -> (a -> Boolean) -> Schema -> Gen Result
 validationTest eitherPred gen p scm = do
   a <- gen
-  pure $ prop a
+  let result = prop a
+  pure $ withHelp 
+    (resultBool result) 
+    ("validation failure: " <> (Arg.stringify $ Arg.encodeJson a) <> " result: " <> (show $ action a))
   where
-  prop v = toResult  p v ==> toResult (eitherPred <<< runExcept <<< validate scm <<< Arg.stringify <<< Arg.encodeJson) v
+  action = runExcept <<< validate scm <<< Arg.stringify <<< Arg.encodeJson
+  prop v = 
+    toResult  p v ==> toResult (eitherPred <<< action) v
+
+resultBool :: Result -> Boolean
+resultBool Success = true
+resultBool _ = false
 
 toResult' :: Boolean -> Result
 toResult' a = withHelp a "failed predicate"
