@@ -7,10 +7,10 @@ module Data.Medea.Parser.Spec.String
 
 import MedeaPrelude
 import Unsafe.Coerce (unsafeCoerce)
-import Text.Parsing.Parser (fail)
-import Text.Parsing.Parser.Combinators (try)
 import Data.Medea.Parser.Types (MedeaParser, MedeaParseErr(..))
 import Data.Medea.Parser.Primitive (MedeaString, ReservedIdentifier(..), parseLine, parseReserved, parseString)
+import Parsing (fail)
+import Parsing.Combinators (try)
 
 newtype Specification
   = Specification (Array MedeaString)

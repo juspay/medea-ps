@@ -23,7 +23,6 @@ import Test.QuickCheck.Gen as Gen
 import TestM (TestPlanM, isParseError, isSchemaError, runTestM, appendPath)
 import Unsafe.Coerce (unsafeCoerce)
 import Test.Spec.Assertions (shouldNotSatisfy, fail)
-import Debug (spy)
 
 arrayFromNonEmptyArray :: NonEmpty Array String -> Array String
 arrayFromNonEmptyArray (a :| as) = a:as
@@ -154,7 +153,7 @@ suite = do
     $ ObjTestParams
         { objTestOpts: ObjGenOpts [ "foo", "bar", "bazz" ] [] 0 0
         , objTestPath: "3-property-no-additional-1.medea"
-        , objTestPred: hasProperty "foo" (Arg.isNumber || Arg.isArray) && hasProperty "bazz" (Arg.isNull || Arg.isBoolean) && hasProperty "bar" (const true) 
+        , objTestPred: hasProperty "foo" (Arg.isNumber || Arg.isArray) && hasProperty "bazz" (Arg.isNull || Arg.isBoolean) && hasProperty "bar" (const true)
         , objAdditionalPred: const false
         }
   testObject
@@ -194,7 +193,7 @@ suite = do
         , objTestPred: (hasOptionalProperty "foo" Arg.isNumber) && (hasProperty "bazz" Arg.isNull)
         , objAdditionalPred: const true
         }
-  -- Object schema with additional property schema" 
+  -- Object schema with additional property schema"
   testObject
     $ ObjTestParams
       { objTestOpts: ObjGenOpts [] [] 0 3,
@@ -309,7 +308,7 @@ data TupleTestParams
 prependTestDir :: String -> String
 prependTestDir s = appendPath "./conformance/validation/" s
 
--- due to Mote and Spec preventing Effects from within a group/describe, 
+-- due to Mote and Spec preventing Effects from within a group/describe,
 -- we need to execute effects outside the group or inside the test only
 testWrap :: String -> String -> (Either LoaderError Schema -> TestPlanM Unit) -> (Schema -> TestPlanM Unit) -> TestPlanM Unit
 testWrap name fp eitherTests tests = do
@@ -335,10 +334,10 @@ testObject (ObjTestParams { objTestOpts, objTestPath, objTestPred, objAdditional
     p' =  objTestPred && makeMapPred objTestOpts objAdditionalPred
 
 makeMapPred :: ObjGenOpts -> (Json -> Boolean) -> Json -> Boolean
-makeMapPred (ObjGenOpts props optProps _ _) p 
-  = Arg.caseJsonObject 
-    false 
-   (all p <<< Obj.filterWithKey (\k _ -> k `notElem` specifiedProps)) 
+makeMapPred (ObjGenOpts props optProps _ _) p
+  = Arg.caseJsonObject
+    false
+   (all p <<< Obj.filterWithKey (\k _ -> k `notElem` specifiedProps))
   where
     specifiedProps = props <> optProps
 
@@ -465,12 +464,12 @@ validationTest :: forall a. EncodeJson a => (forall b c. Either b c -> Boolean) 
 validationTest eitherPred gen p scm = do
   a <- gen
   let result = prop a
-  pure $ withHelp 
-    (resultBool result) 
+  pure $ withHelp
+    (resultBool result)
     ("validation failure: " <> (Arg.stringify $ Arg.encodeJson a) <> " result: " <> (show $ action a))
   where
   action = runExcept <<< validate scm <<< Arg.stringify <<< Arg.encodeJson
-  prop v = 
+  prop v =
     toResult  p v ==> toResult (eitherPred <<< action) v
 
 resultBool :: Result -> Boolean

@@ -17,35 +17,36 @@ module Data.Medea.Parser.Primitive
   ) where
 
 import MedeaPrelude
+
 import Control.Alternative ((<|>))
 import Control.Safely (replicateM_)
 import Data.Array as Array
 import Data.CodePoint.Unicode (GeneralCategory(..), generalCategory, isControl)
 import Data.Int as Int
 import Data.List (List)
+import Data.Medea.JSONType (JSONType(..))
+import Data.Medea.Parser.Parsing (eol)
+import Data.Medea.Parser.Types (MedeaParser, MedeaParseErr(..))
 import Data.Natural (Natural)
 import Data.Natural as Nat
+import Data.String (CodePoint)
 import Data.String (codePointFromChar, length, singleton) as String
 import Data.String.CodeUnits (fromCharArray) as String
-import Text.Parsing.Parser (fail)
-import Text.Parsing.Parser.Combinators (manyTill)
-import Text.Parsing.Parser.String (char, string, anyChar)
-import Text.Parsing.Parser.Token (digit)
-import Data.Medea.Parser.Parsing (takeWhile1P, eol)
-import Data.Medea.JSONType (JSONType(..))
-import Data.Medea.Parser.Types (MedeaParser, MedeaParseErr(..))
+import Parsing (fail)
+import Parsing.Combinators (manyTill)
+import Parsing.String (anyChar, char, string)
+import Parsing.String.Basic (takeWhile)
+import Parsing.Token (digit)
 
 -- vendored due to the function being deprecated from the unicode library
 
-isSeparator :: Char -> Boolean
+isSeparator :: CodePoint -> Boolean
 isSeparator c =
-    case generalCategory (String.codePointFromChar $ c) of
+    case generalCategory c of
         Just Space                   -> true
         Just LineSeparator           -> true
         Just ParagraphSeparator      -> true
         _                            -> false
-
-isControl' = isControl <<< String.codePointFromChar
 
 newtype Identifier
   = Identifier String
@@ -63,7 +64,7 @@ instance showIdentifier :: Show Identifier where
 
 parseIdentifier :: MedeaParser Identifier
 parseIdentifier = do
-  ident <- String.fromCharArray <$> takeWhile1P "Non-Seperator" (not <<< isSeperatorOrControl)
+  ident <- takeWhile (not <<< isSeparatorOrControl)
   checkedConstruct Identifier ident
 
 data ReservedIdentifier
@@ -141,7 +142,7 @@ identFromReserved = Identifier <<< fromReserved
 
 parseReserved :: ReservedIdentifier -> MedeaParser Identifier
 parseReserved reserved = do
-  ident <- String.fromCharArray <$> takeWhile1P "Non-seperator" (not <<< isSeperatorOrControl)
+  ident <- takeWhile (not <<< isSeparatorOrControl)
   let
     reservedText = fromReserved reserved
   when (ident /= reservedText) $ fail $ show $ ExpectedReservedIdentifier $ reservedText
@@ -294,8 +295,8 @@ checkedConstruct f t =
   else
     pure <<< f $ t
 
-isSeperatorOrControl :: Char -> Boolean
-isSeperatorOrControl c = isSeparator c || isControl' c
+isSeparatorOrControl :: CodePoint -> Boolean
+isSeparatorOrControl c = isSeparator c || isControl c
 
 parseLine :: forall a. Int -> MedeaParser a -> MedeaParser a
 parseLine spaces p = (replicateM_ spaces (char ' ')) *> p <* eol

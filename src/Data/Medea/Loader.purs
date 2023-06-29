@@ -10,50 +10,50 @@ import Control.Monad.Except (runExcept)
 import Data.Medea.Schema (Schema(..))
 import Data.Medea.Analysis (AnalysisError(..), compileSchemata)
 import Data.Medea.Parser.Spec.Schemata as Schemata
-import Text.Parsing.Parser (ParseError, runParser)
 import Node.Encoding (Encoding(..))
 import Node.FS.Aff (readTextFile)
+import Parsing (ParseError, runParser)
 
 data LoaderError
-  -- | The data provided wasn't UTF-8. 
+  -- | The data provided wasn't UTF-8.
   = NotUtf8
-  -- | An identifier was longer than allowed. 
+  -- | An identifier was longer than allowed.
   | IdentifierTooLong
-  -- | A length specification had no minimum/maximum specification. 
+  -- | A length specification had no minimum/maximum specification.
   | EmptyLengthSpec
-  -- | Parsing failed. 
+  -- | Parsing failed.
   | ParserError ParseError
-  -- | No schema labelled $start was provided. 
+  -- | No schema labelled $start was provided.
   | StartSchemaMissing
-  -- | A schema was typed in terms of itself. 
+  -- | A schema was typed in terms of itself.
   | SelfTypingSchema
-  -- | A schema was defined more than once. 
+  -- | A schema was defined more than once.
   | MultipleSchemaDefinition String
-  -- | name of the undefined schema  and the schema that references it. 
+  -- | name of the undefined schema  and the schema that references it.
   | MissingSchemaDefinition String String
-  -- | A schema with non-start reserved naming identifier. 
+  -- | A schema with non-start reserved naming identifier.
   | SchemaNameReserved String -- name of the reserved identifier
-  -- | An isolated schema was found. 
+  -- | An isolated schema was found.
   | IsolatedSchemata String
-  -- | name of undefined property schema and the schema that references it 
+  -- | name of undefined property schema and the schema that references it
   | MissingPropSchemaDefinition String String
-  -- | name of undefined list element type and the schema that references it. 
+  -- | name of undefined list element type and the schema that references it.
   | MissingListSchemaDefinition String String
-  -- | name of the underfined tuple positional schema and the schema that references it 
+  -- | name of the underfined tuple positional schema and the schema that references it
   | MissingTupleSchemaDefinition String String
-  -- | Minimum length specification was more than maximum. 
+  -- | Minimum length specification was more than maximum.
   | MinimumLengthGreaterThanMaximum String -- name of the schema
-  -- | A property specifier section has two properties with the same name. 
+  -- | A property specifier section has two properties with the same name.
   -- | Arguments are the parent Schema name and the property name.
   | MultiplePropSchemaDefinition String String
   | UnexpectedTypeNodeErr
-  -- | Schema has a Property specification but no $object type 
+  -- | Schema has a Property specification but no $object type
   | PropertySpecWithoutObjectType String
-  -- | Schema has a List specification but no $arry type 
+  -- | Schema has a List specification but no $arry type
   | ListSpecWithoutArrayType String
-  -- | Schema has a Tuple specification but no $array type 
+  -- | Schema has a Tuple specification but no $array type
   | TupleSpecWithoutArrayType String
-  -- | Schema has a String specification but no $string type 
+  -- | Schema has a String specification but no $string type
   | StringSpecWithoutStringType String
 
 derive instance genericLoaderError :: Generic LoaderError _

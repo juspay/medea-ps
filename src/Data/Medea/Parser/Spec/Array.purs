@@ -8,11 +8,11 @@ module Data.Medea.Parser.Spec.Array
 import MedeaPrelude
 import Control.Alternative ((<|>))
 import Data.Natural (Natural)
-import Text.Parsing.Parser (fail)
-import Text.Parsing.Parser.Combinators (try)
 import Data.Medea.Parser.Permutation (toPermutationWithDefault, runPermutation)
 import Data.Medea.Parser.Primitive (Identifier, ReservedIdentifier(..), parseIdentifier, parseKeyVal, parseReserved, parseNatural, parseLine)
 import Data.Medea.Parser.Types (MedeaParser, MedeaParseErr(..))
+import Parsing (fail)
+import Parsing.Combinators (try)
 
 data Specification
   = Specification

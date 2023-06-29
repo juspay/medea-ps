@@ -116,19 +116,18 @@ let additions =
   }
 -------------------------------
 -}
-
-
 let upstream =
-      https://github.com/purescript/package-sets/releases/download/psc-0.14.5-20211116/packages.dhall sha256:7ba810597a275e43c83411d2ab0d4b3c54d0b551436f4b1632e9ff3eb62e327a
+      https://github.com/purescript/package-sets/releases/download/psc-0.15.4-20230105/packages.dhall
+        sha256:3e9fbc9ba03e9a1fcfd895f65e2d50ee2f5e86c4cd273f3d5c841b655a0e1bda
 
 let overrides = {=}
 
 let additions =
       { mote =
-          { dependencies = [ "these", "transformers", "arrays" ]
-          , repo = "https://github.com/garyb/purescript-mote"
-          , version = "v1.1.0"
-          }
+        { dependencies = [ "these", "transformers", "arrays" ]
+        , repo = "https://github.com/garyb/purescript-mote"
+        , version = "v1.1.0"
+        }
       }
 
-in  upstream ⫽ additions
+in  upstream // additions

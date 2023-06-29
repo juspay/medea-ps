@@ -13,7 +13,7 @@ import Data.Medea.Parser.Spec.Array as Array
 import Data.Medea.Parser.Spec.Object as Object
 import Data.Medea.Parser.Spec.Type as Type
 import Data.Medea.Parser.Spec.String as String
-import Text.Parsing.Parser.Combinators (try)
+import Parsing.Combinators (try)
 
 data Specification
   = Specification

@@ -5,9 +5,9 @@ module Data.Medea.Parser.Spec.Type
   ) where
 
 import MedeaPrelude
-import Text.Parsing.Parser.Combinators (try)
 import Data.Medea.Parser.Primitive (Identifier, ReservedIdentifier(..), parseLine, parseReserved, parseIdentifier)
 import Data.Medea.Parser.Types (MedeaParser)
+import Parsing.Combinators (try)
 
 newtype Specification
   = Specification (Array Identifier)

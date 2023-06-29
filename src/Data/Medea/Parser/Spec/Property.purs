@@ -1,9 +1,9 @@
 module Data.Medea.Parser.Spec.Property (Specification, parseSpecification, mkSpec, propName, propSchema, propOptional) where
 
 import MedeaPrelude
-import Text.Parsing.Parser.Combinators (option, try)
 import Data.Medea.Parser.Primitive (Identifier, MedeaString, ReservedIdentifier(..), parseIdentifier, parseLine, parseReserved, parseString, parseKeyVal)
 import Data.Medea.Parser.Types (MedeaParser)
+import Parsing.Combinators (option, try)
 
 data Specification
   = Specification

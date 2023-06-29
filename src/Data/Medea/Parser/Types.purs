@@ -4,7 +4,7 @@ module Data.Medea.Parser.Types
   ) where
 
 import MedeaPrelude
-import Text.Parsing.Parser (Parser)
+import Parsing (Parser)
 
 data MedeaParseErr
   = IdentifierTooLong String

@@ -3,6 +3,7 @@ module MedeaPrelude
   , module Aff
   , module Array
   , module Bifunctor
+  , module ControlAlternative
   , module Either
   , module Enum
   , module Foldable
@@ -12,7 +13,6 @@ module MedeaPrelude
   , module HashMap
   , module Map
   , module Maybe
-  , module MonadZero
   , module Nested
   , module Newtype
   , module Set
@@ -22,7 +22,7 @@ module MedeaPrelude
   ) where
 
 import Prelude
-import Control.MonadZero (guard) as MonadZero
+import Control.Alternative (guard) as ControlAlternative
 import Data.Array hiding (mapWithIndex, foldMap, foldl, foldr, all) as Array
 import Data.Bifunctor as Bifunctor
 import Data.Either as Either

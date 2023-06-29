@@ -11,8 +11,8 @@ import MedeaPrelude
 import Data.Medea.Parser.Primitive (Identifier, ReservedIdentifier(..), parseIdentifier, parseKeyVal, parseLine, parseReserved)
 import Data.Medea.Parser.Spec.Property as Property
 import Data.Medea.Parser.Types (MedeaParser, MedeaParseErr(..))
-import Text.Parsing.Parser (fail)
-import Text.Parsing.Parser.Combinators (option, try)
+import Parsing (fail)
+import Parsing.Combinators (option, try)
 
 data Specification
   = Specification
